@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(touch app/__init__.py app/database/__init__.py app/crud/__init__.py app/services/__init__.py app/api/__init__.py)",
+      "Bash(cat)"
+    ]
+  }
+}

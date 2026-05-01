@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Saanye CRM — Dashboard Comercial</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<!-- ═══════════════════════════════
+     SIDEBAR
+════════════════════════════════ -->
+<nav class="sidebar">
+  <div class="logo">
+    <span class="logo-dot"></span>
+    SAANYE
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">Principal</div>
+    <div class="nav-item active" data-view="jefe">
+      <span class="nav-icon">📊</span> Dashboard Jefe
+    </div>
+    <div class="nav-item" data-view="ventas">
+      <span class="nav-icon">📋</span> Ventas Detalladas
+    </div>
+  </div>
+
+  <div class="sidebar-footer">Saanye CRM v0.2</div>
+</nav>
+
+<!-- ═══════════════════════════════
+     CONTENIDO PRINCIPAL
+════════════════════════════════ -->
+<main class="content">
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <h1 id="page-title">Dashboard Comercial</h1>
+    <div class="topbar-right">
+      <span id="last-update"></span>
+      <button class="btn btn-ghost" onclick="refreshAll()">↻ Actualizar</button>
+    </div>
+  </header>
+
+  <!-- ───────────────────────────────────────────
+       VISTA JEFE
+  ─────────────────────────────────────────── -->
+  <section id="view-jefe" class="view">
+
+    <!-- KPIs -->
+    <div class="kpi-grid">
+
+      <div class="kpi-card">
+        <div class="kpi-label">Venta MTD Total</div>
+        <div class="kpi-value" id="kpi-total-val">—</div>
+        <div class="kpi-sub"  id="kpi-total-sub"></div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Variación vs Año Anterior</div>
+        <div class="kpi-value" id="kpi-var-val">—</div>
+        <div class="kpi-sub"   id="kpi-var-sub"></div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Clientes Activos MTD</div>
+        <div class="kpi-value" id="kpi-clientes-val">—</div>
+        <div class="kpi-sub">Clientes únicos facturados</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Clientes Recuperados</div>
+        <div class="kpi-value" id="kpi-rec-val">—</div>
+        <div class="kpi-sub">Con +6 meses de ausencia</div>
+      </div>
+
+    </div>
+
+    <!-- Gráfico MTD + Lista Recuperados -->
+    <div class="grid-2">
+
+      <div class="card">
+        <div class="card-header">
+          <h2>MTD por Vendedor</h2>
+          <span class="badge">Mes actual vs año anterior</span>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="chart-mtd"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2>Clientes Recuperados</h2>
+          <span class="badge badge-green" id="badge-rec">0</span>
+        </div>
+        <div id="list-recuperados" class="scroll-list">
+          <div class="loading-row"><span class="spinner"></span> Cargando...</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Tabla Clientes en Caída -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Clientes en Caída</h2>
+        <div class="card-controls">
+          <select id="sel-vendedor" onchange="filterCaida()">
+            <option value="">Todos los vendedores</option>
+          </select>
+          <span class="badge badge-red" id="badge-caida">0</span>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Vendedor</th>
+              <th>NIT</th>
+              <th class="num">Período Anterior</th>
+              <th class="num">Período Reciente</th>
+              <th class="num">Diferencia</th>
+              <th class="num">% Cambio</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tbody-caida">
+            <tr><td colspan="7" class="loading-row"><span class="spinner"></span> Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ───────────────────────────────────────────
+       VISTA VENTAS DETALLADAS
+  ─────────────────────────────────────────── -->
+  <section id="view-ventas" class="view hidden">
+
+    <div class="card">
+      <div class="card-header">
+        <h2>Ventas Detalladas por Período</h2>
+        <div class="date-row">
+          <input type="date" id="fi" />
+          <span style="color:var(--txt-muted)">→</span>
+          <input type="date" id="ff" />
+          <button class="btn btn-primary" onclick="loadVentas()">Consultar</button>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Pref.</th>
+              <th>N°</th>
+              <th>Vendedor</th>
+              <th>NIT</th>
+              <th>Producto</th>
+              <th class="num">Cantidad</th>
+              <th class="num">Neto</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-ventas">
+            <tr><td colspan="8" class="empty">Selecciona un rango y pulsa Consultar</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="table-footer" id="ventas-footer"></div>
+    </div>
+
+  </section>
+
+</main>
+
+<!-- ═══════════════════════════════
+     MODAL — PRODUCTOS PERDIDOS
+════════════════════════════════ -->
+<div id="overlay" class="overlay hidden" onclick="closeModal()">
+  <div class="modal" onclick="event.stopPropagation()">
+
+    <div class="modal-header">
+      <h2>Productos Perdidos</h2>
+      <span class="badge" id="modal-nit"></span>
+      <span class="badge badge-yellow" id="modal-vendor"></span>
+      <button class="btn-close" onclick="closeModal()">✕</button>
+    </div>
+
+    <p class="modal-desc">
+      Productos que el cliente compraba hace ~12 meses y dejó de comprar en los últimos 90 días,
+      ordenados por impacto en pesos.
+    </p>
+
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th class="num">Venta Histórica</th>
+            <th class="num">Venta Reciente</th>
+            <th class="num">Impacto</th>
+            <th class="num">% Cambio</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-perdidos">
+          <tr><td colspan="5" class="loading-row"><span class="spinner"></span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<!-- Chart.js desde CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="/static/js/main.js"></script>
+</body>
+</html>
