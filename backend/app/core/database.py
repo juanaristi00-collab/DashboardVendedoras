@@ -15,8 +15,9 @@ async def get_pool() -> aiomysql.Pool:
             db=settings.DB_NAME_SAANYE,
             charset="utf8mb4",
             autocommit=True,
-            minsize=1,
-            maxsize=5,  # VPN: límite conservador para no saturar el túnel
+            minsize=0,          # Crítico en Serverless para no dejar conexiones huérfanas
+            maxsize=2,          
+            connect_timeout=5,  # Si no conecta en 5 segundos, que falle rápido en lugar de colgar Vercel
         )
     return _pool
 
