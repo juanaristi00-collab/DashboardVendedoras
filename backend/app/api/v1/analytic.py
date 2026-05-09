@@ -15,8 +15,8 @@ import httpx
 
 router = APIRouter(tags=["Analytics"])
 
-KV_URL = os.getenv("KV_REST_API_URL")
-KV_TOKEN = os.getenv("KV_REST_API_TOKEN")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY") # Usamos la service role para poder escribir
 ADMIN_PIN = "1234" # Hardcoded simple PIN for metas
 
 
@@ -97,7 +97,7 @@ async def vendedoras():
 
 @router.get("/metas", summary="Obtener metas de vendedoras")
 async def obtener_metas():
-    if not KV_URL or not KV_TOKEN:
+    if not SUPABASE_URL or not SUPABASE_KEY:
         # Fallback local (si existe)
         METAS_FILE = os.path.join(os.path.dirname(__file__), "../../../metas.json")
         if os.path.exists(METAS_FILE):
@@ -107,13 +107,20 @@ async def obtener_metas():
         
     try:
         async with httpx.AsyncClient() as client:
-            res = await client.get(f"{KV_URL}/get/saanye_metas", headers={"Authorization": f"Bearer {KV_TOKEN}"})
+            headers = {
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}"
+            }
+            res = await client.get(f"{SUPABASE_URL}/rest/v1/vendedoras_metas", headers=headers)
             if res.status_code == 200:
-                data = res.json()
-                if data.get("result"):
-                    return JSONResponse(json.loads(data["result"]))
+                rows = res.json()
+                # Convertir lista de filas a objeto JSON compatible con el frontend
+                # De: [{"vendedor": "dorava", "meta_mensual": 500}, ...]
+                # A: {"dorava": {"meta_mensual": 500}, ...}
+                result = {row["vendedor"]: {"meta_mensual": row["meta_mensual"]} for row in rows}
+                return JSONResponse(result)
     except Exception as e:
-        print("Error fetching metas from KV:", e)
+        print("Error fetching metas from Supabase:", e)
     return JSONResponse({})
 
 @router.post("/metas", summary="Guardar metas de vendedoras")
@@ -121,7 +128,7 @@ async def guardar_metas(metas: dict, pin: str = Query(..., description="PIN de a
     if pin != ADMIN_PIN:
         return JSONResponse({"error": "PIN incorrecto"}, status_code=403)
         
-    if not KV_URL or not KV_TOKEN:
+    if not SUPABASE_URL or not SUPABASE_KEY:
         # Fallback local
         METAS_FILE = os.path.join(os.path.dirname(__file__), "../../../metas.json")
         with open(METAS_FILE, "w") as f:
@@ -129,13 +136,23 @@ async def guardar_metas(metas: dict, pin: str = Query(..., description="PIN de a
         return JSONResponse({"status": "ok (local fallback)"})
         
     try:
-        async with httpx.AsyncClient() as client:
-            metas_str = json.dumps(metas)
-            res = await client.post(f"{KV_URL}/set/saanye_metas", headers={"Authorization": f"Bearer {KV_TOKEN}"}, json=metas_str)
-            if res.status_code == 200:
-                return JSONResponse({"status": "ok"})
-    except Exception as e:
-        print("Error saving metas to KV:", e)
-        return JSONResponse({"error": "Error de conexión con Vercel KV"}, status_code=500)
+        # Transformar objeto del frontend a lista de filas para Supabase
+        rows = [{"vendedor": k, "meta_mensual": v["meta_mensual"]} for k, v in metas.items()]
         
-    return JSONResponse({"error": "Error al guardar en KV"}, status_code=500)
+        async with httpx.AsyncClient() as client:
+            headers = {
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "resolution=merge-duplicates" # Upsert (insertar o actualizar)
+            }
+            res = await client.post(f"{SUPABASE_URL}/rest/v1/vendedoras_metas", headers=headers, json=rows)
+            if res.status_code in (200, 201):
+                return JSONResponse({"status": "ok"})
+            else:
+                print(f"Supabase error {res.status_code}: {res.text}")
+    except Exception as e:
+        print("Error saving metas to Supabase:", e)
+        return JSONResponse({"error": "Error de conexión con Supabase"}, status_code=500)
+        
+    return JSONResponse({"error": "Error al guardar en Supabase"}, status_code=500)
