@@ -2,7 +2,24 @@
    SAANYE CRM — The Sales Bar App Logic
    ════════════════════════════════════════════════════════════════════════════ */
 
-const API = '/api/v1';
+// ── Configuración Global de la API ───────────────────────────────────────────
+// Cuando David entregue la URL pública del servidor, reemplaza el string vacío:
+// Ejemplo: const API_BASE_URL = 'https://api.saanye.com';
+// Dejar vacío ('') significa que las peticiones van al mismo dominio (modo local).
+const API_BASE_URL = '';   // <── David: poner aquí la URL del servidor cuando esté listo
+const API = API_BASE_URL + '/api/v1';
+
+// ── Token JWT (Infraestructura de David) ─────────────────────────────────────
+// Cuando David active la autenticación JWT, poner el token aquí.
+// Por ahora está vacío y el header Authorization no se envía.
+const API_TOKEN = '';   // <── David: token Bearer cuando active auth
+
+// Helper fetch que inyecta Authorization si hay token configurado
+async function apiFetch(url, options = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+  if (API_TOKEN) headers['Authorization'] = `Bearer ${API_TOKEN}`;
+  return fetch(url, { ...options, headers });
+}
 
 const $ = id => document.getElementById(id);
 
@@ -42,8 +59,8 @@ async function init() {
 
   try {
     const [vendRes, metasRes] = await Promise.all([
-      fetch(API + '/analytics/vendedoras'),
-      fetch(API + '/analytics/metas')
+      apiFetch(API + '/analytics/vendedoras'),
+      apiFetch(API + '/analytics/metas')
     ]);
     
     if (vendRes.ok) {
@@ -109,9 +126,9 @@ async function loadDashboard() {
     
     // Disparar requests en paralelo
     const [mtdRes, caidaRes, estrellaRes] = await Promise.all([
-      fetch(API + '/analytics/mtd' + vQuery),
-      fetch(API + '/analytics/clientes/caida' + vQuery),
-      fetch(API + '/analytics/clientes/mtd' + vQuery) // MTD clientes para Top 20
+      apiFetch(API + '/analytics/mtd' + vQuery),
+      apiFetch(API + '/analytics/clientes/caida' + vQuery),
+      apiFetch(API + '/analytics/clientes/mtd' + vQuery) // MTD clientes para Top 20
     ]);
     
     if (mtdRes.ok) renderBloque1((await mtdRes.json()).data);
@@ -223,7 +240,7 @@ async function toggleProductos(nit, panelId) {
   if (panel.dataset.loaded) return; // Ya cargado
   
   try {
-    const res = await fetch(`${API}/analytics/productos/perdidos/${nit}?vendedor=${encodeURIComponent(currentVendedora)}`);
+    const res = await apiFetch(`${API}/analytics/productos/perdidos/${nit}?vendedor=${encodeURIComponent(currentVendedora)}`);
     if (!res.ok) throw new Error('Failed');
     
     const data = (await res.json()).data;

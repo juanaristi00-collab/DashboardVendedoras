@@ -1,22 +1,32 @@
-version: '3.8'
+version: '3.9'
 
 services:
-  crm-dashboard:
+  saanye-api:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: crm-dashboard-app
-    restart: always
+    container_name: saanye-crm-api
+    restart: unless-stopped
     ports:
+      # Puerto público : Puerto interno del contenedor
+      # David puede cambiar el puerto externo si necesita (ej: 80:8000)
       - "8000:8000"
-    # Load environment variables from the .env file in the root directory
     env_file:
+      # David debe crear este archivo en el mismo directorio con las variables de la BD
       - .env
     environment:
       - TZ=America/Bogota
+      # URL del frontend en Vercel para CORS. David debe actualizar este valor.
+      - FRONTEND_URL=${FRONTEND_URL:-https://dashboard-vendedoras-ad.vercel.app}
     networks:
-      - crm-network
+      - saanye-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
 
 networks:
-  crm-network:
+  saanye-net:
     driver: bridge

@@ -1,4 +1,12 @@
-const API = '/api/v1';
+const API_BASE_URL = '';   // <── David: URL pública del servidor (ej: 'https://api.saanye.com')
+const API = API_BASE_URL + '/api/v1';
+const API_TOKEN = '';       // <── David: token Bearer cuando active auth
+
+async function apiFetch(url, options = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+  if (API_TOKEN) headers['Authorization'] = `Bearer ${API_TOKEN}`;
+  return fetch(url, { ...options, headers });
+}
 let currentPin = '';
 let metasData = {};
 
@@ -22,8 +30,8 @@ $('btn-login').addEventListener('click', async () => {
   
   try {
     const [vendRes, metasRes] = await Promise.all([
-      fetch(API + '/analytics/vendedoras'),
-      fetch(API + '/analytics/metas')
+      apiFetch(API + '/analytics/vendedoras'),
+      apiFetch(API + '/analytics/metas')
     ]);
     
     if (!vendRes.ok) {
@@ -85,7 +93,7 @@ $('btn-save').addEventListener('click', async () => {
   $('btn-save').textContent = 'Guardando...';
   
   try {
-    const res = await fetch(API + '/analytics/metas?pin=' + encodeURIComponent(currentPin), {
+    const res = await apiFetch(API + '/analytics/metas?pin=' + encodeURIComponent(currentPin), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newMetas)

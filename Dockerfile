@@ -1,22 +1,33 @@
 FROM python:3.12-slim
 
-# Set working directory
+# Metadata para David
+LABEL maintainer="Saanye CRM" \
+      description="Backend API — Saanye Sales Bar" \
+      version="0.3.0"
+
+# Evitar que Python genere archivos .pyc y buffering en logs
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
-# Install dependencies first (leverage Docker cache)
-COPY backend/requirements.txt /app/backend/
-RUN pip install --no-cache-dir -r /app/backend/requirements.txt
+# Instalar dependencias del sistema necesarias para aiomysql
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy the backend and frontend code
-# Note: The backend/app/main.py expects the frontend folder to be at the same level as backend
+# Instalar dependencias Python (cacheado en capas separadas)
+COPY backend/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copiar solo el backend (el frontend vive en Vercel)
 COPY backend /app/backend
-COPY frontend /app/frontend
 
-# Set the working directory to the backend so uvicorn can find "app.main:app"
+# Establecer el directorio de trabajo donde uvicorn encontrará app.main:app
 WORKDIR /app/backend
 
-# Expose the port the app runs on
+# Puerto expuesto
 EXPOSE 8000
 
-# Command to run the application in production (no reload, multiple workers)
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+# Producción: 4 workers uvicorn, sin reload
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--log-level", "info"]
