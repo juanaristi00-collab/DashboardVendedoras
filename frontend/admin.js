@@ -1,4 +1,4 @@
-const API = 'http://localhost:8000/api/v1';
+const API = '/api/v1';
 let currentPin = '';
 let metasData = {};
 
@@ -26,16 +26,23 @@ $('btn-login').addEventListener('click', async () => {
       fetch(API + '/analytics/metas')
     ]);
     
-    if (!vendRes.ok) throw new Error('Error cargando vendedoras');
+    if (!vendRes.ok) {
+        console.error("Error cargando vendedoras:", vendRes.status);
+        throw new Error('Error cargando vendedoras');
+    }
     
     const vendData = await vendRes.json();
     metasData = await metasRes.json();
+    
+    console.log("Vendedoras en admin:", vendData);
+    console.log("Metas en admin (Supabase):", metasData);
     
     renderMetasList(vendData.data);
     
     $('login-section').style.display = 'none';
     $('metas-section').style.display = 'block';
   } catch (e) {
+    console.error("Admin fetch error:", e);
     showToast('Error de conexión', true);
   }
 });

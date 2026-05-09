@@ -114,11 +114,15 @@ async def obtener_metas():
             res = await client.get(f"{SUPABASE_URL}/rest/v1/vendedoras_metas", headers=headers)
             if res.status_code == 200:
                 rows = res.json()
+                print("Supabase data fetched successfully:", rows)
                 # Convertir lista de filas a objeto JSON compatible con el frontend
                 # De: [{"vendedor": "dorava", "meta_mensual": 500}, ...]
                 # A: {"dorava": {"meta_mensual": 500}, ...}
                 result = {row["vendedor"]: {"meta_mensual": row["meta_mensual"]} for row in rows}
                 return JSONResponse(result)
+            else:
+                print("Supabase fetch error. Status code:", res.status_code)
+                print("Supabase fetch error response:", res.text)
     except Exception as e:
         print("Error fetching metas from Supabase:", e)
     return JSONResponse({})

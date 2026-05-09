@@ -2,7 +2,7 @@
    SAANYE CRM — The Sales Bar App Logic
    ════════════════════════════════════════════════════════════════════════════ */
 
-const API = 'http://localhost:8000/api/v1';
+const API = '/api/v1';
 
 const $ = id => document.getElementById(id);
 
@@ -36,6 +36,10 @@ let metas = {};
 let currentVendedora = null;
 
 async function init() {
+  const select = $('select-vendedora');
+  select.innerHTML = '<option value="">Cargando vendedoras...</option>';
+  select.disabled = true;
+
   try {
     const [vendRes, metasRes] = await Promise.all([
       fetch(API + '/analytics/vendedoras'),
@@ -44,15 +48,26 @@ async function init() {
     
     if (vendRes.ok) {
       const vendData = await vendRes.json();
+      console.log("Vendedoras fetch result:", vendData);
       vendedoras = vendData.data || [];
       populateDropdown();
+    } else {
+      console.error("Vendedoras fetch error:", vendRes.status);
+      select.innerHTML = '<option value="">Error cargando vendedoras</option>';
     }
     
     if (metasRes.ok) {
       metas = await metasRes.json();
+      console.log("Metas fetch result (from Supabase):", metas);
+    } else {
+      console.error("Metas fetch error:", metasRes.status);
     }
   } catch (e) {
+    console.error("Fetch API error:", e);
     showToast('Error cargando configuración inicial', true);
+    select.innerHTML = '<option value="">Error de conexión</option>';
+  } finally {
+    select.disabled = false;
   }
 }
 
