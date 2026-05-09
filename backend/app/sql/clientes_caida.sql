@@ -26,8 +26,15 @@ From (
         )                                                   As Total
     From Enc_Ventas E
     Left Join Det_Ventas D Using(Prefijo, Numero)
-    INNER JOIN confresoxusuario CxU ON CxU.IdUsuario = E.Usuario
+    Left Join enc_pedidos P  ON P.Numero = E.Numero_Aso AND P.Prefijo = E.Prefijo_Aso
+    INNER JOIN confresoxusuario CxU ON CxU.IdUsuario = COALESCE(P.Usuario, E.Usuario)
     Where E.Fecha Between :fecha_anterior_inicio And :fecha_anterior_fin
+      And (E.Estado IS NULL OR E.Estado <> 'A')
+      And (
+          E.Prefijo IN ('FE', 'POSE')
+          OR (E.Prefijo = '0' AND (E.Prefijo_Aso IS NULL OR E.Prefijo_Aso = ''))
+      )
+      {filtro_vendedor}
     Group By E.Nit, CxU.Vendedor_Asociado
     Having Total >= :minimo_venta
 ) Antes
@@ -42,8 +49,15 @@ Left Join (
         )                                                   As Total
     From Enc_Ventas E
     Left Join Det_Ventas D Using(Prefijo, Numero)
-    INNER JOIN confresoxusuario CxU ON CxU.IdUsuario = E.Usuario
+    Left Join enc_pedidos P  ON P.Numero = E.Numero_Aso AND P.Prefijo = E.Prefijo_Aso
+    INNER JOIN confresoxusuario CxU ON CxU.IdUsuario = COALESCE(P.Usuario, E.Usuario)
     Where E.Fecha Between :fecha_reciente_inicio And :fecha_reciente_fin
+      And (E.Estado IS NULL OR E.Estado <> 'A')
+      And (
+          E.Prefijo IN ('FE', 'POSE')
+          OR (E.Prefijo = '0' AND (E.Prefijo_Aso IS NULL OR E.Prefijo_Aso = ''))
+      )
+      {filtro_vendedor}
     Group By E.Nit
 ) Ahora On Ahora.Nit = Antes.Nit
 

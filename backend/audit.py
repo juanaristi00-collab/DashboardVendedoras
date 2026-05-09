@@ -1,48 +1,36 @@
 import asyncio
-import aiomysql
-from pydantic_settings import BaseSettings
+import sys
+import os
 
-class Settings(BaseSettings):
-    db_host: str = '25.32.163.75'
-    db_port: int = 3309
-    db_user: str = 'consulta'
-    db_password: str = 'C0nsult@24*'
-    db_name: str = 'zoftkrates_papeleria'
-    class Config:
-        env_file = '.env'
+# Add backend to path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-settings = Settings()
+from app.core.database import get_pool
 
 async def main():
-    pool = await aiomysql.create_pool(
-        host=settings.db_host, 
-        port=settings.db_port, 
-        user=settings.db_user, 
-        password=settings.db_password, 
-        db=settings.db_name
-    )
+    pool = await get_pool()
     async with pool.acquire() as conn:
         async with conn.cursor() as cur:
             await cur.execute('SELECT IdUsuario, count(*) FROM confresoxusuario GROUP BY IdUsuario HAVING count(*) > 1')
             dupes = await cur.fetchall()
-            print('Duplicates in confresoxusuario:', dupes)
+            print('Duplicates in confresoxusuario (IdUsuario):', dupes)
 
-            await cur.execute('SELECT COUNT(*) FROM confresoxusuario')
-            total = await cur.fetchone()
-            print('Total records in confresoxusuario:', total)
+            await cur.execute('SELECT * FROM confresoxusuario LIMIT 5')
+            sample = await cur.fetchall()
+            print('Sample confresoxusuario:', sample)
 
-            # Let's see the sum with and without the JOIN for MTD
-            sql_without_join = """
+            # check total sum without join
+            sql1 = """
                 Select Sum(D.Precio * D.Cantidad * ((100 - D.Descuento) / 100) * ((100 + D.Impuesto)  / 100))
                 From Enc_Ventas E
                 Left Join Det_Ventas D   Using(Prefijo, Numero)
                 Where Year(E.Fecha)  = Year(CurDate())
                   And Month(E.Fecha) = Month(CurDate())
             """
-            await cur.execute(sql_without_join)
-            print('MTD Total WITHOUT confresoxusuario join:', await cur.fetchone())
+            await cur.execute(sql1)
+            print('MTD Total WITHOUT join:', await cur.fetchone())
 
-            sql_with_join = """
+            sql2 = """
                 Select Sum(D.Precio * D.Cantidad * ((100 - D.Descuento) / 100) * ((100 + D.Impuesto)  / 100))
                 From Enc_Ventas E
                 Left Join Det_Ventas D   Using(Prefijo, Numero)
@@ -50,10 +38,10 @@ async def main():
                 Where Year(E.Fecha)  = Year(CurDate())
                   And Month(E.Fecha) = Month(CurDate())
             """
-            await cur.execute(sql_with_join)
-            print('MTD Total WITH confresoxusuario join:', await cur.fetchone())
+            await cur.execute(sql2)
+            print('MTD Total WITH join:', await cur.fetchone())
 
-    pool.close()
+    await pool.close()
     await pool.wait_closed()
 
 asyncio.run(main())

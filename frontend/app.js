@@ -1,24 +1,21 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   SAANYE CRM — Application Logic
+   SAANYE CRM — The Sales Bar App Logic
    ════════════════════════════════════════════════════════════════════════════ */
 
 const API = 'http://localhost:8000/api/v1';
 
-/* ─── Formatters ─────────────────────────────────────────────────────────── */
 const $ = id => document.getElementById(id);
 
-function fmt$(n) {
+// Formateo financiero (MM = millones)
+function fmtMM(n) {
   if (n == null) return '—';
-  const abs = Math.abs(n);
-  if (abs >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1) + 'B';
-  if (abs >= 1_000_000)     return (n / 1_000_000).toFixed(1) + 'M';
-  if (abs >= 1_000)         return (n / 1_000).toFixed(1) + 'k';
-  return n.toFixed(0);
+  const val = n / 1_000_000;
+  return '$' + val.toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' MM';
 }
 
 function fmtPesos(n) {
   if (n == null) return '—';
-  return '$' + new Intl.NumberFormat('es-CO').format(Math.round(n));
+  return '$' + Math.round(n).toLocaleString('es-CO');
 }
 
 function fmtPct(n) {
@@ -26,371 +23,246 @@ function fmtPct(n) {
   return (n > 0 ? '+' : '') + n.toFixed(1) + '%';
 }
 
-function deltaClass(n) {
-  if (n == null || n === 0) return 'flat';
-  return n > 0 ? 'up' : 'down';
-}
-
-function deltaArrow(n) {
-  if (n == null || n === 0) return '→';
-  return n > 0 ? '▲' : '▼';
-}
-
-function deltaBadge(pct) {
-  const cls = deltaClass(pct);
-  return `<span class="delta ${cls}">${deltaArrow(pct)} ${fmtPct(pct)}</span>`;
-}
-
-/* ─── DateTime ───────────────────────────────────────────────────────────── */
-function updateClock() {
-  const now = new Date();
-  $('datetime').textContent = now.toLocaleString('es-CO', {
-    weekday: 'short', day: '2-digit', month: 'short',
-    hour: '2-digit', minute: '2-digit', second: '2-digit'
-  });
-}
-setInterval(updateClock, 1000);
-updateClock();
-
-/* ─── Connection status ──────────────────────────────────────────────────── */
-function setStatus(state, text) {
-  const dot = $('status-dot');
-  const txt = $('status-text');
-  dot.className = 'status-dot ' + state;
-  txt.textContent = text;
-}
-
-/* ─── Toast ──────────────────────────────────────────────────────────────── */
-let _toastTimer;
 function showToast(msg, isError = false) {
-  let toast = document.querySelector('.toast');
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.className = 'toast';
-    document.body.appendChild(toast);
-  }
+  let toast = $('toast');
   toast.textContent = msg;
   toast.className = 'toast ' + (isError ? 'error' : '');
-  clearTimeout(_toastTimer);
-  requestAnimationFrame(() => toast.classList.add('show'));
-  _toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3000);
 }
 
-/* ─── Fetch helper ───────────────────────────────────────────────────────── */
-async function apiFetch(path) {
-  setStatus('pulse', 'Consultando…');
+let vendedoras = [];
+let metas = {};
+let currentVendedora = null;
+
+async function init() {
   try {
-    const res = await fetch(API + path);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const json = await res.json();
-    setStatus('ok', 'Conectado · ' + new Date().toLocaleTimeString('es-CO'));
-    return json.data ?? [];
+    const [vendRes, metasRes] = await Promise.all([
+      fetch(API + '/analytics/vendedoras'),
+      fetch(API + '/analytics/metas')
+    ]);
+    
+    if (vendRes.ok) {
+      const vendData = await vendRes.json();
+      vendedoras = vendData.data || [];
+      populateDropdown();
+    }
+    
+    if (metasRes.ok) {
+      metas = await metasRes.json();
+    }
   } catch (e) {
-    setStatus('error', 'Error de conexión');
-    showToast('No se pudo conectar con el servidor', true);
-    return null;
+    showToast('Error cargando configuración inicial', true);
   }
 }
 
-/* ─── View routing ───────────────────────────────────────────────────────── */
-const views = {
-  mtd:          { title: 'Resumen MTD', badge: 'Mes actual vs año anterior' },
-  caida:        { title: 'Clientes en Caída', badge: 'Top 50 por pérdida' },
-  recuperados:  { title: 'Clientes Recuperados', badge: 'Regresaron a comprar' },
-};
-
-let activeView = 'mtd';
-
-document.querySelectorAll('.nav-item').forEach(el => {
-  el.addEventListener('click', e => {
-    e.preventDefault();
-    const view = el.dataset.view;
-    switchView(view);
-  });
-});
-
-function switchView(view) {
-  activeView = view;
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  $('view-' + view).classList.add('active');
-  $('nav-' + view).classList.add('active');
-  $('page-title').textContent = views[view].title;
-  $('page-badge').textContent = views[view].badge;
-  if (view === 'caida' && !_caidaLoaded)  loadCaida();
-  if (view === 'recuperados' && !_recLoaded) loadRecuperados();
-}
-
-/* ══════════════════════════ VIEW: MTD ═══════════════════════════════════ */
-let _mtdChart = null;
-let _mtdData  = [];
-
-async function loadMTD() {
-  $('btn-refresh').classList.add('spinning');
-  const data = await apiFetch('/analytics/mtd');
-  $('btn-refresh').classList.remove('spinning');
-  if (!data) return;
-  _mtdData = data;
-  renderKpisMTD(data);
-  renderChartMTD(data);
-  renderTableMTD(data);
-  ['kpi-total-actual','kpi-variacion','kpi-clientes','kpi-vendedores'].forEach(id => $( id).classList.add('loaded'));
-}
-
-function renderKpisMTD(data) {
-  const totalActual    = data.reduce((s, r) => s + (r.ventaActual   || 0), 0);
-  const totalAnterior  = data.reduce((s, r) => s + (r.ventaAnterior || 0), 0);
-  const totalClientes  = data.reduce((s, r) => s + (r.clientesActivos || 0), 0);
-  const vendedores     = new Set(data.map(r => r.vendedor)).size;
-  const pct = totalAnterior ? ((totalActual - totalAnterior) / totalAnterior * 100) : null;
-
-  $('kpi-val-actual').textContent    = '$' + fmt$(totalActual);
-  $('kpi-sub-actual').textContent    = 'Año anterior: $' + fmt$(totalAnterior);
-
-  $('kpi-val-var').innerHTML         = deltaBadge(pct);
-  $('kpi-sub-var').textContent       = fmtPesos(totalActual - totalAnterior);
-
-  $('kpi-val-clientes').textContent  = totalClientes.toLocaleString('es-CO');
-  $('kpi-sub-clientes').textContent  = 'Este mes';
-
-  $('kpi-val-vendedores').textContent = vendedores;
-  $('kpi-sub-vendedores').textContent = 'con ventas activas';
-}
-
-function renderChartMTD(data) {
-  const top = data.slice(0, 12);
-  const labels = top.map(r => r.nombreVendedor?.split(' ')[0] || r.vendedor);
-  const actual  = top.map(r => r.ventaActual   || 0);
-  const anterior = top.map(r => r.ventaAnterior || 0);
-
-  if (_mtdChart) _mtdChart.destroy();
-
-  const ctx = $('chart-mtd').getContext('2d');
-  _mtdChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [
-        {
-          label: 'Actual',
-          data: actual,
-          backgroundColor: 'rgba(99,102,241,.85)',
-          borderRadius: 6,
-          borderSkipped: false,
-        },
-        {
-          label: 'Año Anterior',
-          data: anterior,
-          backgroundColor: 'rgba(99,102,241,.2)',
-          borderRadius: 6,
-          borderSkipped: false,
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: 'index' },
-      plugins: {
-        legend: {
-          labels: { color: '#8892b0', font: { family: 'Inter', size: 11 }, boxWidth: 12, padding: 16 }
-        },
-        tooltip: {
-          backgroundColor: '#151929',
-          borderColor: 'rgba(255,255,255,.08)',
-          borderWidth: 1,
-          titleColor: '#e8eaf2',
-          bodyColor: '#8892b0',
-          callbacks: {
-            label: ctx => ` ${ctx.dataset.label}: $${fmt$(ctx.raw)}`
-          }
-        }
-      },
-      scales: {
-        x: {
-          ticks: { color: '#8892b0', font: { family: 'Inter', size: 10 }, maxRotation: 35 },
-          grid:  { color: 'rgba(255,255,255,.04)' }
-        },
-        y: {
-          ticks: {
-            color: '#8892b0',
-            font: { family: 'Inter', size: 10 },
-            callback: v => '$' + fmt$(v)
-          },
-          grid: { color: 'rgba(255,255,255,.04)' }
-        }
-      }
-    }
+function populateDropdown() {
+  const select = $('select-vendedora');
+  select.innerHTML = '<option value="">Selecciona tu nombre...</option>';
+  
+  vendedoras.forEach(v => {
+    if (!v.vendedor) return;
+    const opt = document.createElement('option');
+    opt.value = v.vendedor;
+    opt.textContent = v.vendedor.toUpperCase();
+    select.appendChild(opt);
   });
 }
 
-function renderTableMTD(data) {
-  const maxVenta = Math.max(...data.map(r => r.ventaActual || 0));
-  const tbody = $('tbody-mtd');
-
-  tbody.innerHTML = data.map(r => {
-    const pct = r.ventaAnterior ? ((r.ventaActual - r.ventaAnterior) / r.ventaAnterior * 100) : null;
-    const barW = maxVenta ? (((r.ventaActual || 0) / maxVenta) * 100).toFixed(1) : 0;
-    const barColor = pct >= 0 ? '#6366f1' : '#f43f5e';
-    return `
-      <tr>
-        <td>
-          <div style="font-weight:600;color:var(--text-primary)">${r.nombreVendedor || r.vendedor || '—'}</div>
-          <div style="font-size:.7rem;color:var(--text-muted);margin-top:2px">${r.vendedor || ''}</div>
-        </td>
-        <td class="num">
-          <div>${fmtPesos(r.ventaActual)}</div>
-          <div class="mini-bar-wrap" style="margin-top:4px">
-            <div class="mini-bar"><div class="mini-bar-fill" style="width:${barW}%;background:${barColor}"></div></div>
-          </div>
-        </td>
-        <td class="num">${fmtPesos(r.ventaAnterior)}</td>
-        <td class="num">${deltaBadge(pct)}</td>
-        <td class="num"><span style="color:var(--text-primary);font-weight:600">${r.clientesActivos ?? 0}</span></td>
-      </tr>`;
-  }).join('') || '<tr><td colspan="5" class="loading-row">Sin datos</td></tr>';
-}
-
-// Search filter MTD
-$('search-mtd').addEventListener('input', e => {
-  const q = e.target.value.toLowerCase();
-  const filtered = _mtdData.filter(r =>
-    (r.nombreVendedor || '').toLowerCase().includes(q) ||
-    (r.vendedor || '').toLowerCase().includes(q)
-  );
-  renderTableMTD(filtered);
+$('select-vendedora').addEventListener('change', (e) => {
+  currentVendedora = e.target.value;
+  if (!currentVendedora) {
+    $('dashboard-content').style.display = 'none';
+    $('welcome-state').style.display = 'block';
+    return;
+  }
+  
+  $('dashboard-content').style.display = 'flex';
+  $('welcome-state').style.display = 'none';
+  loadDashboard();
 });
 
-/* ══════════════════════════ VIEW: CAÍDA ═════════════════════════════════ */
-let _caidaLoaded = false;
-
-async function loadCaida() {
-  _caidaLoaded = true;
-  const dias    = $('filter-dias').value;
-  const minimo  = $('filter-minimo').value;
-
-  $('tbody-caida').innerHTML = '<tr><td colspan="7" class="loading-row">Cargando datos…</td></tr>';
-  $('kpi-caida-total').classList.remove('loaded');
-  $('kpi-caida-perdida').classList.remove('loaded');
-
-  const data = await apiFetch(`/analytics/clientes/caida?dias_comparar=${dias}&minimo_venta=${minimo}`);
-  if (!data) return;
-
-  // KPIs
-  const perdida = data.reduce((s, r) => s + (r.diferencia || 0), 0);
-  $('kpi-val-caida-total').textContent   = data.length;
-  $('kpi-val-caida-perdida').textContent = '$' + fmt$(Math.abs(perdida));
-  $('kpi-caida-total').classList.add('loaded');
-  $('kpi-caida-perdida').classList.add('loaded');
-
-  // Table
-  const tbody = $('tbody-caida');
-  tbody.innerHTML = data.map(r => {
-    const pct = r.pctCambio ?? null;
-    return `
-      <tr>
-        <td>
-          <div style="font-weight:600;color:var(--text-primary)">${r.nombreCliente || '—'}</div>
-          <span style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text-muted)">NIT: ${r.nit || '—'}</span>
-        </td>
-        <td>${r.nombreVendedor || r.vendedor || '—'}</td>
-        <td class="num">${fmtPesos(r.ventaAnterior)}</td>
-        <td class="num">${fmtPesos(r.ventaReciente)}</td>
-        <td class="num" style="color:var(--danger)">${fmtPesos(r.diferencia)}</td>
-        <td class="num">${deltaBadge(pct)}</td>
-        <td><button class="btn-action" onclick="openProductos('${r.nit}')">Ver productos →</button></td>
-      </tr>`;
-  }).join('') || '<tr><td colspan="7" class="loading-row">Sin clientes en caída para este período</td></tr>';
-}
-
-$('btn-apply-caida').addEventListener('click', () => { _caidaLoaded = false; loadCaida(); });
-
-/* ══════════════════════════ VIEW: RECUPERADOS ════════════════════════════ */
-let _recLoaded = false;
-
-async function loadRecuperados() {
-  _recLoaded = true;
-  const dias  = $('filter-dias-rec').value;
-  const gap   = $('filter-gap').value;
-
-  $('tbody-rec').innerHTML = '<tr><td colspan="6" class="loading-row">Cargando datos…</td></tr>';
-  $('kpi-rec-total').classList.remove('loaded');
-  $('kpi-rec-dias').classList.remove('loaded');
-
-  const data = await apiFetch(`/analytics/clientes/recuperados?dias_recientes=${dias}&meses_gap=${gap}`);
-  if (!data) return;
-
-  // KPIs
-  const avgDias = data.length ? (data.reduce((s,r) => s + (r.diasAusente || 0), 0) / data.length) : 0;
-  $('kpi-val-rec-total').textContent = data.length;
-  $('kpi-val-rec-dias').textContent  = Math.round(avgDias);
-  $('kpi-rec-total').classList.add('loaded');
-  $('kpi-rec-dias').classList.add('loaded');
-
-  // Table
-  const tbody = $('tbody-rec');
-  tbody.innerHTML = data.map(r => `
-    <tr>
-      <td>
-        <div style="font-weight:600;color:var(--text-primary)">${r.nombreCliente || '—'}</div>
-        <span style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text-muted)">NIT: ${r.nit || '—'}</span>
-      </td>
-      <td>${r.nombreVendedor || r.vendedor || '—'}</td>
-      <td class="num">${r.ultimaCompra   || '—'}</td>
-      <td class="num">${r.ultimaCompraPrevia || '—'}</td>
-      <td class="num">
-        <span style="color:var(--warning);font-weight:700">${r.diasAusente ?? '—'} días</span>
-      </td>
-      <td class="num">${fmtPesos(r.totalReciente)}</td>
-    </tr>`
-  ).join('') || '<tr><td colspan="6" class="loading-row">Sin clientes recuperados para este período</td></tr>';
-}
-
-$('btn-apply-rec').addEventListener('click', () => { _recLoaded = false; loadRecuperados(); });
-
-/* ══════════════════════════ MODAL: PRODUCTOS PERDIDOS ════════════════════ */
-async function openProductos(nit) {
-  $('modal-nit-label').textContent   = 'NIT: ' + nit;
-  $('tbody-productos').innerHTML     = '<tr><td colspan="5" class="loading-row">Cargando productos…</td></tr>';
-  $('modal-overlay').classList.add('open');
-  document.body.style.overflow = 'hidden';
-
-  const data = await apiFetch(`/analytics/productos/perdidos/${nit}`);
-  if (!data) return;
-
-  const tbody = $('tbody-productos');
-  tbody.innerHTML = data.map(r => {
-    return `
-      <tr>
-        <td>
-          <div style="font-weight:600;color:var(--text-primary)">${r.producto || '—'}</div>
-        </td>
-        <td class="num">${fmtPesos(r.totalHistorico)}</td>
-        <td class="num">${fmtPesos(r.totalReciente)}</td>
-        <td class="num" style="color:var(--danger)">-${fmtPesos(r.impacto)}</td>
-        <td class="num">${deltaBadge(r.pctCambio)}</td>
-      </tr>`;
-  }).join('') || '<tr><td colspan="5" class="loading-row">No se encontraron productos perdidos</td></tr>';
-}
-
-// Expose globally for inline onclick
-window.openProductos = openProductos;
-
-$('modal-close').addEventListener('click', closeModal);
-$('modal-overlay').addEventListener('click', e => { if (e.target === $('modal-overlay')) closeModal(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
-
-function closeModal() {
-  $('modal-overlay').classList.remove('open');
-  document.body.style.overflow = '';
-}
-
-/* ══════════════════════════ REFRESH BUTTON ══════════════════════════════ */
 $('btn-refresh').addEventListener('click', () => {
-  if (activeView === 'mtd') loadMTD();
-  else if (activeView === 'caida')       { _caidaLoaded = false; loadCaida(); }
-  else if (activeView === 'recuperados') { _recLoaded   = false; loadRecuperados(); }
+  if (currentVendedora) loadDashboard();
 });
 
-/* ══════════════════════════ INIT ════════════════════════════════════════ */
-loadMTD();
+async function loadDashboard() {
+  $('btn-refresh').classList.add('spinning');
+  
+  try {
+    const vQuery = `?vendedor=${encodeURIComponent(currentVendedora)}`;
+    
+    // Disparar requests en paralelo
+    const [mtdRes, caidaRes, estrellaRes] = await Promise.all([
+      fetch(API + '/analytics/mtd' + vQuery),
+      fetch(API + '/analytics/clientes/caida' + vQuery),
+      fetch(API + '/analytics/clientes/mtd' + vQuery) // MTD clientes para Top 20
+    ]);
+    
+    if (mtdRes.ok) renderBloque1((await mtdRes.json()).data);
+    if (caidaRes.ok) renderBloque2((await caidaRes.json()).data);
+    if (estrellaRes.ok) renderBloque3((await estrellaRes.json()).data);
+    
+  } catch (e) {
+    showToast('Error cargando datos', true);
+  } finally {
+    $('btn-refresh').classList.remove('spinning');
+  }
+}
+
+// ── BLOQUE 1: Mis Números ──────────────────────────────────────────────────
+function renderBloque1(data) {
+  let ventaActual = 0;
+  let ventaAnterior = 0;
+  
+  if (data && data.length > 0) {
+    // Si viene agrupado, sumar todo (aunque debería ser 1 fila por el filtro)
+    ventaActual = data.reduce((s, r) => s + (r.ventaActual || 0), 0);
+    ventaAnterior = data.reduce((s, r) => s + (r.ventaAnterior || 0), 0);
+  }
+  
+  $('kpi-ventas-totales').textContent = fmtMM(ventaActual);
+  $('kpi-ventas-sub').textContent = `vs año anterior: ${fmtMM(ventaAnterior)}`;
+  
+  // Meta
+  const metaObj = metas[currentVendedora.toLowerCase()];
+  if (metaObj && metaObj.meta_mensual > 0) {
+    const metaVal = metaObj.meta_mensual;
+    const pct = Math.min(100, Math.round((ventaActual / metaVal) * 100));
+    
+    $('kpi-meta-pct').textContent = `${pct}%`;
+    $('kpi-meta-bar').style.width = `${pct}%`;
+    $('kpi-meta-sub').textContent = `Presupuesto: ${fmtMM(metaVal)}`;
+    
+    if (pct >= 100) {
+      $('kpi-meta-bar').style.background = 'linear-gradient(90deg, #27AE60, #2ecc71)';
+      $('kpi-meta-pct').style.color = '#27AE60';
+    } else {
+      $('kpi-meta-bar').style.background = 'linear-gradient(90deg, var(--teal), #34d399)';
+      $('kpi-meta-pct').style.color = 'var(--teal)';
+    }
+  } else {
+    $('kpi-meta-pct').textContent = '—';
+    $('kpi-meta-bar').style.width = '0%';
+    $('kpi-meta-sub').textContent = 'Presupuesto: no definido';
+    $('kpi-meta-pct').style.color = 'var(--text-muted)';
+  }
+}
+
+// ── BLOQUE 2: Fuga de Dinero ───────────────────────────────────────────────
+function renderBloque2(data) {
+  const container = $('list-caida');
+  
+  if (!data || data.length === 0) {
+    container.innerHTML = `<div class="loading-state">¡Excelente! No tienes clientes con caídas significativas.</div>`;
+    return;
+  }
+  
+  container.innerHTML = data.slice(0, 15).map((r, i) => {
+    const impacto = r.diferencia; // es negativo
+    const pct = r.pctCambio;
+    const nit = r.nit;
+    
+    return `
+      <div class="list-row">
+        <div class="row-main">
+          <div class="row-info">
+            <div class="client-name">${r.nombreCliente || 'Cliente Desconocido'}</div>
+            <div class="client-nit">NIT: ${nit}</div>
+          </div>
+          <div class="row-stats">
+            <div class="stat-value stat-danger">${fmtMM(impacto)}</div>
+            <div class="delta-badge down">${fmtPct(pct)}</div>
+          </div>
+        </div>
+        <button class="btn-expand" onclick="toggleProductos('${nit}', 'panel-${nit}-${i}')">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+          Ver Productos
+        </button>
+        <div class="productos-panel" id="panel-${nit}-${i}">
+          <div style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 10px;">Cargando productos...</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function toggleProductos(nit, panelId) {
+  const panel = $(panelId);
+  const btn = panel.previousElementSibling;
+  
+  const isOpen = panel.classList.contains('open');
+  
+  if (isOpen) {
+    panel.classList.remove('open');
+    btn.classList.remove('open');
+    return;
+  }
+  
+  // Abrir y cargar
+  panel.classList.add('open');
+  btn.classList.add('open');
+  
+  if (panel.dataset.loaded) return; // Ya cargado
+  
+  try {
+    const res = await fetch(`${API}/analytics/productos/perdidos/${nit}?vendedor=${encodeURIComponent(currentVendedora)}`);
+    if (!res.ok) throw new Error('Failed');
+    
+    const data = (await res.json()).data;
+    
+    if (!data || data.length === 0) {
+      panel.innerHTML = `<div style="font-size: 0.8rem; color: var(--text-muted); padding: 8px;">No se encontraron productos específicos.</div>`;
+    } else {
+      panel.innerHTML = data.map(p => `
+        <div class="prod-item">
+          <div class="prod-name">
+            ${p.nombreProducto || p.producto}
+            <div class="prod-cant">Cant: ${p.cantHistorica || 0} → ${p.cantReciente || 0} (${fmtPct(p.pctCambioCant)})</div>
+          </div>
+          <div class="prod-stats">
+            <span class="stat-danger">-${fmtPesos(Math.abs(p.impacto))}</span>
+            <span class="delta-badge down" style="padding: 2px 4px; font-size: 0.7rem;">${fmtPct(p.pctCambioValor)}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+    panel.dataset.loaded = 'true';
+  } catch(e) {
+    panel.innerHTML = `<div style="font-size: 0.8rem; color: var(--danger); padding: 8px;">Error al cargar productos.</div>`;
+  }
+}
+
+// Global para los botones
+window.toggleProductos = toggleProductos;
+
+// ── BLOQUE 3: Clientes Estrella ────────────────────────────────────────────
+function renderBloque3(data) {
+  const container = $('list-estrella');
+  
+  if (!data || data.length === 0) {
+    container.innerHTML = `<div class="loading-state">Aún no hay compras registradas este mes.</div>`;
+    return;
+  }
+  
+  const top20 = data.slice(0, 20);
+  
+  container.innerHTML = top20.map((r, i) => {
+    return `
+      <div class="list-row rank-row">
+        <div class="rank-badge">${i + 1}</div>
+        <div class="row-info">
+          <div class="client-name" style="font-size: 0.95rem;">${r.nombreCliente || 'Cliente Desconocido'}</div>
+          <div class="client-nit">${r.cantFacturas || 0} facturas</div>
+        </div>
+        <div class="row-stats">
+          <div class="stat-value stat-neutral" style="font-size: 1rem;">${fmtMM(r.totalVenta)}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+init();

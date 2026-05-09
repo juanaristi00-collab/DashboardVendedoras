@@ -13,15 +13,19 @@ FIELD_MAP: dict[str, str] = {
     "Numero":          "numero",
     "Prefijo":         "prefijo",
     "Fecha":           "fecha",
-    "Vendedor":        "vendedor",
-    "Nombre_Vendedor": "nombreVendedor",
-    "Bodega":          "bodega",
-    "Nit":             "nit",
-    "Usuario":         "usuario",
-    "Nombre_Usuario":  "nombreUsuario",
-    "Producto":        "producto",
-    "TCantidad":       "totalCantidad",
-    "TNeto":           "totalNeto",
+    "Id_Usuario_Gestion":     "idUsuarioGestion",
+    "Nombre_Usuario_Gestion": "nombreUsuarioGestion",
+    "Id_Usuario_Factura":     "idUsuarioFactura",
+    "Nombre_Usuario_Factura": "nombreUsuarioFactura",
+    "Codigo_Vendedor":        "codigoVendedor",
+    "Nombre_Vendedor":        "nombreVendedor",
+    "Bodega":                 "bodega",
+    "Nit":                    "nit",
+    "Usuario":                "usuario",
+    "Nombre_Usuario":         "nombreUsuario",
+    "Producto":               "producto",
+    "Cantidad":               "cantidad",
+    "Total_Neto":             "totalNeto",
 }
 
 # ── Caché en memoria (TTL 1 hora) ─────────────────────────────────────────────
@@ -64,9 +68,9 @@ def _map_row(row: dict) -> dict:
             result[out_key] = value.isoformat()
         elif isinstance(value, Decimal):
             result[out_key] = round(float(value), 2)
-        elif db_key == "TNeto":
+        elif db_key == "Total_Neto":
             result[out_key] = round(float(value), 2)
-        elif db_key == "TCantidad":
+        elif db_key == "Cantidad":
             result[out_key] = int(value)
         else:
             result[out_key] = value

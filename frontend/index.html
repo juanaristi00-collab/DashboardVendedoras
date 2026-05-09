@@ -3,316 +3,93 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Saanye CRM — Dashboard Comercial</title>
-  <meta name="description" content="Dashboard comercial Saanye — análisis de ventas, clientes y tendencias en tiempo real." />
+  <title>Saanye CRM — The Sales Bar</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Bebas+Neue&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css?v=2" />
 </head>
 <body>
 
-  <!-- ═══════════════════════════════ SIDEBAR ═══════════════════════════════ -->
-  <aside class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-      <div class="logo">
-        <div class="logo-icon">S</div>
-        <div class="logo-text">
-          <span class="logo-name">Saanye</span>
-          <span class="logo-sub">CRM Comercial</span>
-        </div>
-      </div>
+  <!-- HEADER -->
+  <header class="header">
+    <div class="logo">
+      <div class="logo-icon">S</div>
+      <div class="logo-text">Saanye <span class="logo-sub">Sales Bar</span></div>
     </div>
-
-    <nav class="sidebar-nav">
-      <a href="#" class="nav-item active" data-view="mtd" id="nav-mtd">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-        <span>Resumen MTD</span>
-      </a>
-      <a href="#" class="nav-item" data-view="caida" id="nav-caida">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>
-        <span>Clientes en Caída</span>
-      </a>
-      <a href="#" class="nav-item" data-view="recuperados" id="nav-recuperados">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-        <span>Recuperados</span>
-      </a>
-    </nav>
-
-    <div class="sidebar-footer">
-      <div class="status-dot" id="status-dot"></div>
-      <span id="status-text">Conectando…</span>
-    </div>
-  </aside>
-
-  <!-- ═══════════════════════════════ MAIN ═══════════════════════════════════ -->
-  <main class="main">
-
-    <!-- TOP BAR -->
-    <header class="topbar">
-      <div class="topbar-left">
-        <h1 class="page-title" id="page-title">Resumen MTD</h1>
-        <span class="page-badge" id="page-badge">Mes actual vs año anterior</span>
-      </div>
-      <div class="topbar-right">
-        <div class="datetime" id="datetime"></div>
-        <button class="btn-refresh" id="btn-refresh" title="Actualizar datos">
+    
+    <div class="vendedora-selector">
+      <label for="select-vendedora">¿Quién es la vendedora hoy?</label>
+      <div class="select-wrapper">
+        <select id="select-vendedora">
+          <option value="">Selecciona tu nombre...</option>
+        </select>
+        <button id="btn-refresh" class="btn-refresh" title="Actualizar datos">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
         </button>
       </div>
-    </header>
+    </div>
+  </header>
 
-    <!-- ─── VIEW: MTD ─────────────────────────────────────────────────────── -->
-    <section class="view active" id="view-mtd">
-
-      <!-- KPI CARDS -->
-      <div class="kpi-grid" id="kpi-grid">
-        <div class="kpi-card kpi-primary skeleton" id="kpi-total-actual">
-          <div class="kpi-icon">💰</div>
-          <div class="kpi-body">
-            <div class="kpi-label">Venta Total MTD</div>
-            <div class="kpi-value" id="kpi-val-actual">—</div>
-            <div class="kpi-sub" id="kpi-sub-actual">cargando…</div>
-          </div>
+  <!-- MAIN DASHBOARD -->
+  <main class="main-content" id="dashboard-content" style="display: none;">
+    
+    <!-- BLOQUE 1: MIS NÚMEROS -->
+    <section class="block-section">
+      <h2 class="section-title">📊 Mis Números <span class="badge" id="lbl-mes-actual">MTD</span></h2>
+      <div class="cards-grid">
+        <div class="card kpi-primary">
+          <div class="card-label">Ventas Totales (MTD)</div>
+          <div class="card-value" id="kpi-ventas-totales">—</div>
+          <div class="card-sub" id="kpi-ventas-sub">vs año anterior: —</div>
         </div>
-        <div class="kpi-card kpi-secondary skeleton" id="kpi-variacion">
-          <div class="kpi-icon">📈</div>
-          <div class="kpi-body">
-            <div class="kpi-label">Variación vs Año Anterior</div>
-            <div class="kpi-value" id="kpi-val-var">—</div>
-            <div class="kpi-sub" id="kpi-sub-var">cargando…</div>
-          </div>
-        </div>
-        <div class="kpi-card kpi-accent skeleton" id="kpi-clientes">
-          <div class="kpi-icon">👥</div>
-          <div class="kpi-body">
-            <div class="kpi-label">Clientes Activos</div>
-            <div class="kpi-value" id="kpi-val-clientes">—</div>
-            <div class="kpi-sub" id="kpi-sub-clientes">cargando…</div>
-          </div>
-        </div>
-        <div class="kpi-card kpi-muted skeleton" id="kpi-vendedores">
-          <div class="kpi-icon">🏷️</div>
-          <div class="kpi-body">
-            <div class="kpi-label">Usuarios Activos</div>
-            <div class="kpi-value" id="kpi-val-vendedores">—</div>
-            <div class="kpi-sub" id="kpi-sub-vendedores">cargando…</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- CHART + TABLE split -->
-      <div class="content-grid">
-        <div class="card chart-card">
-          <div class="card-header">
-            <h2 class="card-title">Venta por Usuario — MTD</h2>
-            <span class="card-badge">Actual vs Anterior</span>
-          </div>
-          <div class="chart-wrap">
-            <canvas id="chart-mtd"></canvas>
-          </div>
-        </div>
-
-        <div class="card table-card">
-          <div class="card-header">
-            <h2 class="card-title">Detalle por Usuario</h2>
-            <div class="search-wrap">
-              <input type="text" id="search-mtd" class="search-input" placeholder="Filtrar usuario…" />
+        
+        <div class="card kpi-secondary" id="card-meta">
+          <div class="card-label">Meta vs Real</div>
+          <div class="progress-wrap">
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill" id="kpi-meta-bar" style="width: 0%;"></div>
             </div>
+            <div class="progress-text" id="kpi-meta-pct">0%</div>
           </div>
-          <div class="table-scroll">
-            <table class="data-table" id="table-mtd">
-              <thead>
-                <tr>
-                  <th>Usuario</th>
-                  <th class="num">Venta Actual</th>
-                  <th class="num">Año Anterior</th>
-                  <th class="num">Δ%</th>
-                  <th class="num">Clientes</th>
-                </tr>
-              </thead>
-              <tbody id="tbody-mtd">
-                <tr><td colspan="5" class="loading-row">Cargando datos…</td></tr>
-              </tbody>
-            </table>
-          </div>
+          <div class="card-sub" id="kpi-meta-sub">Presupuesto: no definido</div>
         </div>
       </div>
     </section>
 
-    <!-- ─── VIEW: CAÍDA ───────────────────────────────────────────────────── -->
-    <section class="view" id="view-caida">
-      <div class="filter-bar">
-        <div class="filter-group">
-          <label>Ventana de comparación</label>
-          <select id="filter-dias" class="filter-select">
-            <option value="30">30 días</option>
-            <option value="60">60 días</option>
-            <option value="90" selected>90 días</option>
-            <option value="180">180 días</option>
-          </select>
-        </div>
-        <div class="filter-group">
-          <label>Venta mínima anterior</label>
-          <select id="filter-minimo" class="filter-select">
-            <option value="100000">$100k</option>
-            <option value="300000">$300k</option>
-            <option value="500000" selected>$500k</option>
-            <option value="1000000">$1M</option>
-            <option value="2000000">$2M</option>
-          </select>
-        </div>
-        <button class="btn-apply" id="btn-apply-caida">Aplicar</button>
-      </div>
-
-      <div class="kpi-grid kpi-grid-2">
-        <div class="kpi-card kpi-danger skeleton" id="kpi-caida-total">
-          <div class="kpi-icon">⚠️</div>
-          <div class="kpi-body">
-            <div class="kpi-label">Clientes en Caída</div>
-            <div class="kpi-value" id="kpi-val-caida-total">—</div>
-            <div class="kpi-sub">Top 50 por pérdida</div>
-          </div>
-        </div>
-        <div class="kpi-card kpi-danger-muted skeleton" id="kpi-caida-perdida">
-          <div class="kpi-icon">💸</div>
-          <div class="kpi-body">
-            <div class="kpi-label">Pérdida Total Estimada</div>
-            <div class="kpi-value" id="kpi-val-caida-perdida">—</div>
-            <div class="kpi-sub">suma de diferencias</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <h2 class="card-title">Clientes con Mayor Caída en Compras</h2>
-          <span class="card-badge danger">Riesgo alto</span>
-        </div>
-        <div class="table-scroll">
-          <table class="data-table" id="table-caida">
-            <thead>
-              <tr>
-                <th>Cliente</th>
-                <th>Usuario</th>
-                <th class="num">Período Anterior</th>
-                <th class="num">Período Reciente</th>
-                <th class="num">Diferencia</th>
-                <th class="num">Δ%</th>
-                <th>Acción</th>
-              </tr>
-            </thead>
-            <tbody id="tbody-caida">
-              <tr><td colspan="7" class="loading-row">Cargando datos…</td></tr>
-            </tbody>
-          </table>
-        </div>
+    <!-- BLOQUE 2: FUGA DE DINERO -->
+    <section class="block-section">
+      <h2 class="section-title">💸 Fuga de Dinero</h2>
+      <p class="section-desc">Clientes que han bajado su compra habitual en los últimos 90 días.</p>
+      
+      <div class="list-container" id="list-caida">
+        <div class="loading-state">Cargando fuga de dinero...</div>
+        <!-- Filas dinámicas -->
       </div>
     </section>
 
-    <!-- ─── VIEW: RECUPERADOS ─────────────────────────────────────────────── -->
-    <section class="view" id="view-recuperados">
-      <div class="filter-bar">
-        <div class="filter-group">
-          <label>Compra reciente en últimos</label>
-          <select id="filter-dias-rec" class="filter-select">
-            <option value="7">7 días</option>
-            <option value="15">15 días</option>
-            <option value="30" selected>30 días</option>
-            <option value="60">60 días</option>
-            <option value="90">90 días</option>
-          </select>
-        </div>
-        <div class="filter-group">
-          <label>Ausencia mínima</label>
-          <select id="filter-gap" class="filter-select">
-            <option value="3">3 meses</option>
-            <option value="6" selected>6 meses</option>
-            <option value="9">9 meses</option>
-            <option value="12">12 meses</option>
-          </select>
-        </div>
-        <button class="btn-apply" id="btn-apply-rec">Aplicar</button>
-      </div>
-
-      <div class="kpi-grid kpi-grid-2">
-        <div class="kpi-card kpi-success skeleton" id="kpi-rec-total">
-          <div class="kpi-icon">🔄</div>
-          <div class="kpi-body">
-            <div class="kpi-label">Clientes Recuperados</div>
-            <div class="kpi-value" id="kpi-val-rec-total">—</div>
-            <div class="kpi-sub">volvieron a comprar</div>
-          </div>
-        </div>
-        <div class="kpi-card kpi-success-muted skeleton" id="kpi-rec-dias">
-          <div class="kpi-icon">📅</div>
-          <div class="kpi-body">
-            <div class="kpi-label">Promedio Días Ausente</div>
-            <div class="kpi-value" id="kpi-val-rec-dias">—</div>
-            <div class="kpi-sub">días sin comprar</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <h2 class="card-title">Clientes que Regresaron</h2>
-          <span class="card-badge success">Oportunidad</span>
-        </div>
-        <div class="table-scroll">
-          <table class="data-table" id="table-rec">
-            <thead>
-              <tr>
-                <th>Cliente</th>
-                <th>Usuario</th>
-                <th class="num">Última Compra</th>
-                <th class="num">Compra Previa</th>
-                <th class="num">Días Ausente</th>
-                <th class="num">Total Reciente</th>
-              </tr>
-            </thead>
-            <tbody id="tbody-rec">
-              <tr><td colspan="6" class="loading-row">Cargando datos…</td></tr>
-            </tbody>
-          </table>
-        </div>
+    <!-- BLOQUE 3: MIS CLIENTES ESTRELLA -->
+    <section class="block-section">
+      <h2 class="section-title">⭐ Mis Clientes Estrella</h2>
+      <p class="section-desc">Tu Top 20 de clientes más valiosos de este mes.</p>
+      
+      <div class="list-container" id="list-estrella">
+        <div class="loading-state">Cargando clientes estrella...</div>
+        <!-- Filas dinámicas -->
       </div>
     </section>
 
   </main>
 
-  <!-- ═══════════════════════ MODAL: PRODUCTOS PERDIDOS ═════════════════════ -->
-  <div class="modal-overlay" id="modal-overlay">
-    <div class="modal" id="modal-productos">
-      <div class="modal-header">
-        <div>
-          <h2 class="modal-title">Productos Perdidos</h2>
-          <p class="modal-sub" id="modal-nit-label">NIT: —</p>
-        </div>
-        <button class="modal-close" id="modal-close">✕</button>
-      </div>
-      <div class="modal-body">
-        <div class="table-scroll">
-          <table class="data-table" id="table-productos">
-            <thead>
-              <tr>
-                <th>Producto / Referencia</th>
-                <th class="num">Hist. Año Ant.</th>
-                <th class="num">Reciente</th>
-                <th class="num">Caída $</th>
-                <th class="num">Δ%</th>
-              </tr>
-            </thead>
-            <tbody id="tbody-productos">
-              <tr><td colspan="5" class="loading-row">Cargando…</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+  <div class="welcome-state" id="welcome-state">
+    <div class="welcome-icon">👋</div>
+    <h3>Bienvenida a The Sales Bar</h3>
+    <p>Selecciona tu nombre en la parte superior para ver tus métricas.</p>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-  <script src="/static/app.js"></script>
+  <!-- TOAST -->
+  <div class="toast" id="toast"></div>
+
+  <script src="/static/app.js?v=2"></script>
 </body>
 </html>

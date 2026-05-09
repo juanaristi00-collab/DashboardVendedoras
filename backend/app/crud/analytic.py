@@ -62,27 +62,90 @@ async def _run_query(sql: str, params: dict) -> list[dict]:
             rows = await cur.fetchall()
     return [_map_row(dict(r)) for r in rows]
 
+def _inject_vendedor(sql: str, vendedor: str | None) -> str:
+    filtro = "AND COALESCE(P.Usuario, E.Usuario) = %(vendedor)s" if vendedor else ""
+    return sql.replace("{filtro_vendedor}", filtro)
+
+async def get_vendedoras() -> list[dict]:
+    """Obtiene la lista de vendedoras de los últimos 6 meses."""
+    sql = _load_sql("vendedoras.sql")
+    return await _run_query(sql, {})
+
 
 # ── KPI 1: MTD ────────────────────────────────────────────────────────────────
-async def get_ventas_mtd() -> list[dict]:
+async def get_ventas_mtd(
+    anio: int | None = None,
+    mes:  int | None = None,
+    dia:  int | None = None,
+    vendedor: str | None = None,
+) -> list[dict]:
     """
-    Ventas del mes actual (días 1→hoy) vs mismo período del año anterior.
-    Caché 30 min porque los datos cambian durante el día.
+    Ventas del período seleccionado (anio/mes, días 1→dia)
+    vs mismo período del año anterior.
+    - Si no se pasan parámetros usa el mes actual.
+    - Para meses pasados, :dia = último día del mes (mes completo).
+    - Para el mes actual, :dia = hoy.
+    Caché 30 min para el mes actual; 120 min para históricos.
     """
-    key = f"mtd:{date.today().strftime('%Y-%m')}"
+    today = date.today()
+
+    # Defaults inteligentes
+    if anio is None: anio = today.year
+    if mes  is None: mes  = today.month
+
+    # Si es mes actual: usar día de hoy. Si es pasado: último día del mes.
+    if anio == today.year and mes == today.month:
+        dia_efectivo = dia if dia else today.day
+        ttl = 30
+    else:
+        # Calcular último día del mes seleccionado
+        import calendar
+        dia_efectivo = dia if dia else calendar.monthrange(anio, mes)[1]
+        ttl = 120
+
+    key = f"mtd:{anio}-{mes:02d}-{dia_efectivo}:{vendedor}"
     if (cached := _cache_get(key)) is not None:
         return cached
 
     sql = _load_sql("ventas_mtd.sql")
-    # Sin parámetros externos: usa CurDate() internamente
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        async with conn.cursor(aiomysql.DictCursor) as cur:
-            await cur.execute(sql)
-            rows = await cur.fetchall()
+    sql = _inject_vendedor(sql, vendedor)
+    params = {"anio": anio, "mes": mes, "dia": dia_efectivo, "vendedor": vendedor}
+    result = await _run_query(sql, params)
+    _cache_set(key, result, ttl_minutes=ttl)
+    return result
 
-    result = [_map_row(dict(r)) for r in rows]
-    _cache_set(key, result, ttl_minutes=30)
+
+# ── KPI 1b: Clientes MTD (para Pareto) ───────────────────────────────────────
+async def get_clientes_mtd(
+    anio: int | None = None,
+    mes:  int | None = None,
+    vendedor: str | None = None,
+) -> list[dict]:
+    """
+    Matriz de clientes del período: NIT, nombre, cant. facturas, valor total.
+    Ordenado por TotalVenta DESC para Pareto.
+    """
+    import calendar
+    today = date.today()
+    if anio is None: anio = today.year
+    if mes  is None: mes  = today.month
+
+    if anio == today.year and mes == today.month:
+        dia_efectivo = today.day
+        ttl = 30
+    else:
+        dia_efectivo = calendar.monthrange(anio, mes)[1]
+        ttl = 120
+
+    key = f"clientes_mtd:{anio}-{mes:02d}-{dia_efectivo}:{vendedor}"
+    if (cached := _cache_get(key)) is not None:
+        return cached
+
+    sql = _load_sql("clientes_mtd.sql")
+    sql = _inject_vendedor(sql, vendedor)
+    params = {"anio": anio, "mes": mes, "dia": dia_efectivo, "vendedor": vendedor}
+    result = await _run_query(sql, params)
+    _cache_set(key, result, ttl_minutes=ttl)
     return result
 
 
@@ -90,6 +153,7 @@ async def get_ventas_mtd() -> list[dict]:
 async def get_clientes_recuperados(
     dias_recientes: int = 30,
     meses_gap: int = 6,
+    vendedor: str | None = None,
 ) -> list[dict]:
     """
     Clientes que compraron en los últimos `dias_recientes` días
@@ -100,7 +164,7 @@ async def get_clientes_recuperados(
     fecha_reciente_fin    = today
     fecha_limite_gap      = today - timedelta(days=meses_gap * 30)
 
-    key = f"recuperados:{fecha_reciente_inicio}:{meses_gap}"
+    key = f"recuperados:{fecha_reciente_inicio}:{meses_gap}:{vendedor}"
     if (cached := _cache_get(key)) is not None:
         return cached
 
@@ -108,8 +172,11 @@ async def get_clientes_recuperados(
         "fecha_reciente_inicio": str(fecha_reciente_inicio),
         "fecha_reciente_fin":    str(fecha_reciente_fin),
         "fecha_limite_gap":      str(fecha_limite_gap),
+        "vendedor":              vendedor,
     }
-    result = await _run_query(_load_sql("clientes_recuperados.sql"), params)
+    sql = _load_sql("clientes_recuperados.sql")
+    sql = _inject_vendedor(sql, vendedor)
+    result = await _run_query(sql, params)
     _cache_set(key, result)
     return result
 
@@ -118,6 +185,7 @@ async def get_clientes_recuperados(
 async def get_clientes_caida(
     dias_comparar: int = 90,
     minimo_venta: float = 500_000,
+    vendedor: str | None = None,
 ) -> list[dict]:
     """
     Compara dos ventanas de `dias_comparar` días consecutivas.
@@ -130,7 +198,7 @@ async def get_clientes_caida(
     fecha_anterior_fin    = fecha_reciente_inicio
     fecha_anterior_inicio = fecha_reciente_inicio - timedelta(days=dias_comparar)
 
-    key = f"caida:{fecha_anterior_inicio}:{fecha_reciente_fin}:{minimo_venta}"
+    key = f"caida:{fecha_anterior_inicio}:{fecha_reciente_fin}:{minimo_venta}:{vendedor}"
     if (cached := _cache_get(key)) is not None:
         return cached
 
@@ -140,8 +208,11 @@ async def get_clientes_caida(
         "fecha_reciente_inicio": str(fecha_reciente_inicio),
         "fecha_reciente_fin":    str(fecha_reciente_fin),
         "minimo_venta":          minimo_venta,
+        "vendedor":              vendedor,
     }
-    result = await _run_query(_load_sql("clientes_caida.sql"), params)
+    sql = _load_sql("clientes_caida.sql")
+    sql = _inject_vendedor(sql, vendedor)
+    result = await _run_query(sql, params)
     _cache_set(key, result)
     return result
 
@@ -150,6 +221,7 @@ async def get_clientes_caida(
 async def get_productos_perdidos(
     nit: str,
     dias_recientes: int = 90,
+    vendedor: str | None = None,
 ) -> list[dict]:
     """
     Para un cliente (`nit`), compara qué compraba en el año previo
@@ -162,7 +234,7 @@ async def get_productos_perdidos(
     fecha_hist_inicio = today - timedelta(days=365)
     fecha_hist_fin    = fecha_rec_inicio
 
-    key = f"perdidos:{nit}:{fecha_rec_inicio}"
+    key = f"perdidos:{nit}:{fecha_rec_inicio}:{vendedor}"
     if (cached := _cache_get(key)) is not None:
         return cached
 
@@ -172,7 +244,10 @@ async def get_productos_perdidos(
         "fecha_hist_fin":    str(fecha_hist_fin),
         "fecha_rec_inicio":  str(fecha_rec_inicio),
         "fecha_rec_fin":     str(fecha_rec_fin),
+        "vendedor":          vendedor,
     }
-    result = await _run_query(_load_sql("productos_perdidos.sql"), params)
+    sql = _load_sql("productos_perdidos.sql")
+    sql = _inject_vendedor(sql, vendedor)
+    result = await _run_query(sql, params)
     _cache_set(key, result)
     return result

@@ -48,6 +48,10 @@ app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 async def serve_dashboard():
     return FileResponse(str(_DASHBOARD))
 
+@app.get("/admin", include_in_schema=False)
+async def serve_admin():
+    return FileResponse(str(_FRONTEND / "admin.html"))
+
 @app.get("/health", tags=["Health"])
 async def health():
     return {"status": "ok", "version": "0.2.0"}

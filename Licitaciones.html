@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Licitaciones Públicas — FromUS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Bebas+Neue&family=Nunito:wght@900&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 16px; }
+  body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F2F0E8; color: #202E38; min-height: 100vh; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #E5E4D4; }
+  ::-webkit-scrollbar-thumb { background: #B3C9CC; border-radius: 3px; }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: url('uploads/FONDO 1-af11b2ff.jpg') center/cover no-repeat;
+    opacity: 0.18;
+    z-index: 0;
+    pointer-events: none;
+  }
+  #root, .app-root { position: relative; z-index: 1; }
+
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "accentColor": "#EC672D",
+  "tealColor": "#224F55",
+  "cardStyle": "clean",
+  "showHero": true,
+  "density": "normal"
+}/*EDITMODE-END*/;
+
+// ── Brand tokens ──────────────────────────────────────────────
+const T = {
+  orange: '#EC672D',
+  teal: '#224F55',
+  cream: '#202E38',
+  navy: '#202E38',
+  blueGray: '#B3C9CC',
+  bg: '#FDFCF8',
+};
+
+// ── Mock data ─────────────────────────────────────────────────
+const LICITACIONES = [
+  { id: 'LIC-2026-001', viabilidad: 78, titulo: 'Suministro de equipos de cómputo y tecnología', entidad: 'Ministerio de Educación Nacional', categoria: 'Tecnología', valor: '$850.000.000', cierre: '2026-05-15', publicacion: '2026-04-01', estado: 'abierta', ciudad: 'Bogotá D.C.', descripcion: 'Adquisición de 2.400 computadores portátiles, 120 tabletas y equipos de conectividad para instituciones educativas públicas del país. Incluye garantía de 3 años y soporte técnico.', modalidad: 'Licitación Pública', proceso: '62' },
+  { id: 'LIC-2026-002', viabilidad: 45, titulo: 'Construcción y adecuación de infraestructura vial urbana', entidad: 'Alcaldía Mayor de Bogotá', categoria: 'Infraestructura', valor: '$12.400.000.000', cierre: '2026-05-28', publicacion: '2026-04-05', estado: 'abierta', ciudad: 'Bogotá D.C.', descripcion: 'Intervención de 18 km de vías secundarias en las localidades de Kennedy, Bosa y Ciudad Bolívar. Incluye señalización horizontal, vertical y obras de drenaje.', modalidad: 'Licitación Pública', proceso: '18' },
+  { id: 'LIC-2026-003', viabilidad: 62, titulo: 'Consultoría para sistema de gestión documental', entidad: 'DIAN', categoria: 'Consultoría', valor: '$320.000.000', cierre: '2026-04-30', publicacion: '2026-03-20', estado: 'proxima', ciudad: 'Bogotá D.C.', descripcion: 'Implementación de plataforma de gestión documental electrónica para seis regionales, incluyendo migración de archivos físicos, parametrización y capacitación de funcionarios.', modalidad: 'Concurso de Méritos', proceso: '7' },
+  { id: 'LIC-2026-004', viabilidad: 91, titulo: 'Adquisición de ambulancias y unidades de emergencia', entidad: 'Secretaría de Salud — Antioquia', categoria: 'Salud', valor: '$4.200.000.000', cierre: '2026-06-10', publicacion: '2026-04-10', estado: 'abierta', ciudad: 'Medellín', descripcion: 'Compra de 28 ambulancias tipo TAB, 6 unidades de cuidado intensivo móvil y equipamiento médico para hospitales de primer nivel del departamento de Antioquia.', modalidad: 'Licitación Pública', proceso: '34' },
+  { id: 'LIC-2026-005', viabilidad: 33, titulo: 'Servicio de vigilancia y seguridad privada', entidad: 'Banco Agrario de Colombia', categoria: 'Seguridad', valor: '$1.800.000.000', cierre: '2026-04-22', publicacion: '2026-03-15', estado: 'cerrada', ciudad: 'Nacional', descripcion: 'Prestación del servicio de vigilancia fija y móvil en 147 oficinas a nivel nacional. Incluye personal con certificación, dotación completa y tecnología de monitoreo remoto.', modalidad: 'Selección Abreviada', proceso: '89' },
+  { id: 'LIC-2026-006', viabilidad: 85, titulo: 'Plataforma digital de trámites ciudadanos', entidad: 'MinTIC Colombia', categoria: 'Tecnología', valor: '$2.650.000.000', cierre: '2026-05-20', publicacion: '2026-04-08', estado: 'abierta', ciudad: 'Bogotá D.C.', descripcion: 'Desarrollo e implementación de portal unificado de trámites digitales para ciudadanos, integrado con sistema de autenticación biométrica y bases de datos de 12 entidades.', modalidad: 'Licitación Pública', proceso: '45' },
+  { id: 'LIC-2026-007', viabilidad: 57, titulo: 'Mantenimiento de parques y zonas verdes', entidad: 'Alcaldía de Cali', categoria: 'Medio Ambiente', valor: '$980.000.000', cierre: '2026-05-05', publicacion: '2026-03-28', estado: 'abierta', ciudad: 'Cali', descripcion: 'Mantenimiento integral de 84 parques metropolitanos, incluyendo corte de césped, poda de árboles, fumigación, reparación de mobiliario urbano y sistemas de riego.', modalidad: 'Selección Abreviada', proceso: '21' },
+  { id: 'LIC-2026-008', viabilidad: 70, titulo: 'Adquisición de uniformes y dotación institucional', entidad: 'Policía Nacional', categoria: 'Dotación', valor: '$6.100.000.000', cierre: '2026-06-30', publicacion: '2026-04-12', estado: 'proxima', ciudad: 'Nacional', descripcion: 'Suministro de uniformes de campaña, dotación operativa y equipo personal para 18.000 uniformados en todo el territorio nacional, con especificaciones técnicas reglamentarias.', modalidad: 'Licitación Pública', proceso: '3' },
+];
+
+const CATEGORIAS = ['Todas', 'Tecnología', 'Infraestructura', 'Consultoría', 'Salud', 'Seguridad', 'Medio Ambiente', 'Dotación'];
+const ESTADOS = ['Todos', 'abierta', 'proxima', 'cerrada'];
+
+const estadoLabel = { abierta: 'Abierta', proxima: 'Próxima a cerrar', cerrada: 'Cerrada' };
+const estadoColor = { 
+  abierta: { bg: 'rgba(34,79,85,0.12)', text: '#224F55', dot: '#224F55' }, 
+  proxima: { bg: 'rgba(236,103,45,0.13)', text: '#C4541C', dot: '#EC672D' }, 
+  cerrada: { bg: 'rgba(32,46,56,0.1)', text: '#50606B', dot: '#8A9BA3' } 
+};
+
+const catIcon = { Tecnología: '💻', Infraestructura: '🏗️', Consultoría: '📋', Salud: '🏥', Seguridad: '🛡️', 'Medio Ambiente': '🌿', Dotación: '👕' };
+
+function ViabilidadBadge({ score }) {
+  const color = score >= 75 ? '#27AE60' : score >= 50 ? '#EC672D' : '#EB5757';
+  const label = score >= 75 ? 'Alta' : score >= 50 ? 'Media' : 'Baja';
+  // Arc params
+  const r = 11, cx = 14, cy = 14, stroke = 2.5;
+  const circ = 2 * Math.PI * r;
+  const dash = (score / 100) * circ;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: `${color}14`, border: `1px solid ${color}33`, borderRadius: 8, padding: '5px 10px 5px 6px' }}>
+      <svg width="28" height="28" viewBox="0 0 28 28">
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={stroke} />
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth={stroke}
+          strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
+          transform={`rotate(-90 ${cx} ${cy})`} style={{ transition: 'stroke-dasharray 0.4s ease' }} />
+        <text x={cx} y={cy + 4} textAnchor="middle" fontSize="8" fontWeight="800" fill={color} fontFamily="'Plus Jakarta Sans',sans-serif">{score}</text>
+      </svg>
+      <div>
+        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: `${color}bb`, lineHeight: 1 }}>Viabilidad</div>
+        <div style={{ fontSize: 12, fontWeight: 800, color, lineHeight: 1.3 }}>{label}</div>
+      </div>
+    </div>
+  );
+}
+
+function diasRestantes(fecha) {
+  const diff = new Date(fecha) - new Date();
+  return Math.max(0, Math.ceil(diff / 86400000));
+}
+
+function formatCOP(val) { return val; }
+
+// ── Logo ──────────────────────────────────────────────────────
+function Logo({ height = 28, style = {}, orange = false }) {
+  return (
+    <img
+      src="uploads/LOGO - Blanco PNG.png"
+      alt="fromus"
+      style={{
+        height,
+        width: 'auto',
+        display: 'block',
+        objectFit: 'contain',
+        filter: orange
+          ? 'brightness(0) saturate(100%) invert(45%) sepia(80%) saturate(700%) hue-rotate(345deg) brightness(100%)'
+          : 'none',
+        ...style
+      }}
+    />
+  );
+}
+
+// ── Stat Badge ────────────────────────────────────────────────
+function StatBadge({ label, value, accent }) {
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 40, color: accent, lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 12, color: 'rgba(32,46,56,0.55)', marginTop: 4, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>{label}</div>
+    </div>
+  );
+}
+
+// ── Card ──────────────────────────────────────────────────────
+function LicitacionCard({ licitacion, onClick, tweaks }) {
+  const [hovered, setHovered] = useState(false);
+  const dias = diasRestantes(licitacion.cierre);
+  const st = estadoColor[licitacion.estado];
+  const accent = tweaks.accentColor;
+  const teal = tweaks.tealColor;
+  const compact = tweaks.density === 'compact';
+
+  return (
+    <div
+      onClick={() => onClick(licitacion)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: hovered ? '#fff' : '#FDFCF8',
+        border: `1.5px solid ${hovered ? accent : '#DDD9CC'}`,
+        borderRadius: 16,
+        padding: compact ? '20px 22px' : '26px 28px',
+        cursor: 'pointer',
+        transition: 'all 0.18s ease',
+        boxShadow: hovered ? `0 8px 32px rgba(236,103,45,0.13), 0 2px 8px rgba(0,0,0,0.06)` : '0 2px 8px rgba(0,0,0,0.04)',
+        transform: hovered ? 'translateY(-2px)' : 'none',
+      }}
+    >
+      {/* Header row */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#7A8A93', background: '#fff', borderRadius: 6, padding: '3px 9px' }}>{licitacion.id}</span>
+          <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: st.text, background: st.bg, borderRadius: 6, padding: '3px 9px', display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: st.dot, display: 'inline-block' }}></span>
+            {estadoLabel[licitacion.estado]}
+          </span>
+        </div>
+        <span style={{ fontSize: 12, color: '#9AAAB0', fontWeight: 500, whiteSpace: 'nowrap' }}>{licitacion.ciudad}</span>
+      </div>
+
+      {/* Title */}
+      <h3 style={{ fontSize: compact ? 15 : 17, fontWeight: 700, color: '#202E38', lineHeight: 1.35, marginBottom: 8, textWrap: 'pretty' }}>
+        {licitacion.titulo}
+      </h3>
+
+      {/* Entity */}
+      <p style={{ fontSize: 13, color: teal, fontWeight: 600, marginBottom: compact ? 14 : 18 }}>{licitacion.entidad}</p>
+
+      {!compact && <p style={{ fontSize: 13, color: '#5A6A73', lineHeight: 1.6, marginBottom: 18, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{licitacion.descripcion}</p>}
+
+      {/* Footer row */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 20 }}>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#9AAAB0', marginBottom: 2 }}>Valor estimado</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: '#202E38' }}>{formatCOP(licitacion.valor)}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#9AAAB0', marginBottom: 2 }}>Cierre</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: licitacion.estado === 'proxima' ? accent : '#202E38' }}>{dias > 0 ? `${dias} días` : 'Cerrado'}</div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <ViabilidadBadge score={licitacion.viabilidad} />
+          <span style={{ fontSize: 12, color: '#9AAAB0' }}>{licitacion.modalidad}</span>
+          <span style={{ width: 28, height: 28, borderRadius: '50%', background: hovered ? accent : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.18s', color: hovered ? '#fff' : '#7A8A93', fontSize: 13, fontWeight: 700 }}>→</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Detail Modal ──────────────────────────────────────────────
+function DetailModal({ licitacion, onClose, tweaks }) {
+  const accent = tweaks.accentColor;
+  const teal = tweaks.tealColor;
+  const dias = diasRestantes(licitacion.cierre);
+  const st = estadoColor[licitacion.estado];
+
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(32,46,56,0.55)', backdropFilter: 'blur(4px)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: '#FDFCF8', borderRadius: 20, width: '100%', maxWidth: 680, maxHeight: '90vh', overflow: 'auto', boxShadow: '0 24px 80px rgba(0,0,0,0.2)' }}>
+        {/* Modal header */}
+        <div style={{ background: teal, borderRadius: '20px 20px 0 0', padding: '28px 32px', position: 'relative' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(179,201,204,0.8)', marginBottom: 10, display: 'block' }}>{licitacion.id} · {licitacion.modalidad}</span>
+              <h2 style={{ fontSize: 22, fontWeight: 800, color: '#fff', lineHeight: 1.3, maxWidth: 480, textWrap: 'pretty' }}>{licitacion.titulo}</h2>
+            </div>
+            <button onClick={onClose} style={{ background: '#DDD9CC', border: 'none', borderRadius: 10, width: 36, height: 36, cursor: 'pointer', color: '#fff', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>✕</button>
+          </div>
+          <p style={{ fontSize: 14, color: 'rgba(229,228,212,0.8)', marginTop: 8, fontWeight: 600 }}>{licitacion.entidad}</p>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: '28px 32px' }}>
+          {/* Status row */}
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 24 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: st.text, background: st.bg, borderRadius: 8, padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: st.dot, display: 'inline-block' }}></span>
+              {estadoLabel[licitacion.estado]}
+            </span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#5A6A73', background: '#fff', borderRadius: 8, padding: '6px 14px' }}>{licitacion.categoria}</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#5A6A73', background: '#fff', borderRadius: 8, padding: '6px 14px' }}>{licitacion.ciudad}</span>
+          </div>
+
+          {/* Stats */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 28 }}>
+            {[
+              { label: 'Valor estimado', value: licitacion.valor, bold: true },
+              { label: 'Fecha de cierre', value: new Date(licitacion.cierre).toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' }) },
+              { label: 'Días restantes', value: dias > 0 ? `${dias} días` : 'Cerrado', color: licitacion.estado === 'proxima' ? accent : undefined },
+              { label: 'Viabilidad IA', value: `${licitacion.viabilidad}/100`, color: licitacion.viabilidad >= 75 ? '#27AE60' : licitacion.viabilidad >= 50 ? accent : '#EB5757', bold: true },
+            ].map((s, i) => (
+              <div key={i} style={{ background: '#FDFCF8', borderRadius: 12, padding: '16px 18px' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#9AAAB0', marginBottom: 6 }}>{s.label}</div>
+                <div style={{ fontSize: 16, fontWeight: s.bold ? 800 : 700, color: s.color || '#202E38' }}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Description */}
+          <div style={{ marginBottom: 28 }}>
+            <h4 style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#9AAAB0', marginBottom: 10 }}>Descripción del proceso</h4>
+            <p style={{ fontSize: 15, color: '#3A4A53', lineHeight: 1.7 }}>{licitacion.descripcion}</p>
+          </div>
+
+          {/* Extra info */}
+          <div style={{ background: '#FDFCF8', borderRadius: 12, padding: '16px 20px', marginBottom: 28, display: 'flex', gap: 32 }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9AAAB0', marginBottom: 4 }}>Publicación</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#202E38' }}>{new Date(licitacion.publicacion).toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9AAAB0', marginBottom: 4 }}>Proponentes</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#202E38' }}>{licitacion.proceso} inscritos</div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button style={{ flex: 1, background: accent, color: '#fff', border: 'none', borderRadius: 12, padding: '14px 24px', fontSize: 15, fontWeight: 700, cursor: 'pointer', transition: 'opacity 0.15s' }}
+              onMouseEnter={e => e.target.style.opacity = '0.88'}
+              onMouseLeave={e => e.target.style.opacity = '1'}>
+              Participar en esta licitación
+            </button>
+            <button style={{ background: '#FDFCF8', color: '#202E38', border: 'none', borderRadius: 12, padding: '14px 18px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+              Guardar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main App ──────────────────────────────────────────────────
+function App() {
+  const [tweaks, setTweak] = window.useTweaks ? window.useTweaks(TWEAK_DEFAULTS) : [TWEAK_DEFAULTS, () => {}];
+  const TweaksPanel = window.TweaksPanel || (() => null);
+  const [search, setSearch] = useState('');
+  const [categoria, setCategoria] = useState('Todas');
+  const [estado, setEstado] = useState('Todos');
+  const [selected, setSelected] = useState(null);
+  const [mobileMenu, setMobileMenu] = useState(false);
+  const accent = tweaks.accentColor;
+  const teal = tweaks.tealColor;
+
+  const filtered = LICITACIONES.filter(l => {
+    const matchSearch = search === '' || l.titulo.toLowerCase().includes(search.toLowerCase()) || l.entidad.toLowerCase().includes(search.toLowerCase());
+    const matchCat = categoria === 'Todas' || l.categoria === categoria;
+    const matchEst = estado === 'Todos' || l.estado === estado;
+    return matchSearch && matchCat && matchEst;
+  });
+
+  const abiertas = LICITACIONES.filter(l => l.estado === 'abierta').length;
+  const proximas = LICITACIONES.filter(l => l.estado === 'proxima').length;
+  const totalValor = '$28.500.000.000';
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#FDFCF8' }}>
+      {/* ── NAV ── */}
+      <nav style={{ background: '#E5E4D4', position: 'sticky', top: 0, zIndex: 50, boxShadow: '0 2px 20px rgba(0,0,0,0.1)' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 64 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 32 }}>
+            <Logo height={96} orange={true} />
+            <div style={{ display: 'flex', gap: 4 }}>
+              {[
+                { label: 'Terminal de Datos', active: true, badge: '200' },
+                { label: 'CRM', active: false },
+                { label: 'Herramientas', active: false },
+                { label: 'Configuración IA', active: false },
+              ].map((item, i) => (
+                <a key={item.label} href="#" style={{ padding: '6px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, color: item.active ? '#202E38' : 'rgba(32,46,56,0.55)', textDecoration: 'none', background: item.active ? 'rgba(255,255,255,0.12)' : 'transparent', transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 7, whiteSpace: 'nowrap' }}
+                  onMouseEnter={e => { if (!item.active) e.currentTarget.style.color = '#202E38'; }}
+                  onMouseLeave={e => { if (!item.active) e.currentTarget.style.color = 'rgba(32,46,56,0.55)'; }}>
+                  {item.label}
+                  {item.badge && <span style={{ background: accent, color: '#fff', borderRadius: 20, fontSize: 10, fontWeight: 800, padding: '1px 7px', lineHeight: '18px' }}>{item.badge}</span>}
+                </a>
+              ))}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <button style={{ background: 'transparent', border: '1.5px solid rgba(32,46,56,0.3)', color: '#202E38', borderRadius: 10, padding: '7px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Ingresar</button>
+            <button style={{ background: '#EC672D', border: 'none', color: '#fff', borderRadius: 10, padding: '8px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Registrarse</button>
+          </div>
+        </div>
+      </nav>
+
+      {/* ── HERO ── */}
+      {tweaks.showHero && (
+        <div style={{ background: '#E5E4D4', position: 'relative', overflow: 'hidden', paddingBottom: 56 }}>
+          {/* Gradient orbs */}
+          <div style={{ position: 'absolute', top: -60, right: -80, width: 400, height: 400, borderRadius: '50%', background: `radial-gradient(circle, ${accent}55 0%, transparent 70%)`, pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', bottom: -100, left: -60, width: 300, height: 300, borderRadius: '50%', background: `radial-gradient(circle, #B3C9CC33 0%, transparent 70%)`, pointerEvents: 'none' }} />
+
+          <div style={{ maxWidth: 1200, margin: '0 auto', padding: '56px 24px 0' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 40, flexWrap: 'wrap' }}>
+              <div style={{ maxWidth: 560 }}>
+                <span style={{ display: 'inline-block', background: 'rgba(236,103,45,0.12)', color: '#EC672D', borderRadius: 8, padding: '4px 12px', fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16 }}>Plataforma de Compras Públicas</span>
+                <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(40px, 6vw, 68px)', color: '#fff', lineHeight: 1.0, marginBottom: 18, letterSpacing: '0.01em' }}>
+                  <span style={{ color: '#202E38' }}>Licitaciones</span><br />
+                  <span style={{ color: '#EC672D' }}>Públicas </span>
+                  <span style={{ color: '#202E38' }}>Colombia</span>
+                </h1>
+                <p style={{ fontSize: 16, color: 'rgba(32,46,56,0.65)', lineHeight: 1.7, maxWidth: 440, marginBottom: 0 }}>
+                  Encuentra y participa en los procesos de contratación pública más relevantes del país, en un solo lugar.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', gap: 48, flexWrap: 'wrap' }}>
+                <StatBadge label="Licitaciones activas" value={abiertas} accent={accent} />
+                <StatBadge label="Próximas a cerrar" value={proximas} accent="#224F55" />
+                <StatBadge label="Entidades vinculadas" value="142" accent="#202E38" />
+              </div>
+            </div>
+          </div>
+
+          {/* Search bar */}
+          <div style={{ maxWidth: 1200, margin: '40px auto 0', padding: '0 24px' }}>
+            <div style={{ background: '#fff', borderRadius: 16, padding: '6px 8px 6px 20px', display: 'flex', alignItems: 'center', gap: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
+              <span style={{ color: '#9AAAB0', fontSize: 18, flexShrink: 0 }}>🔍</span>
+              <input value={search} onChange={e => setSearch(e.target.value)}
+                placeholder="Buscar por entidad, sector, objeto contractual…"
+                style={{ flex: 1, border: 'none', outline: 'none', fontSize: 15, color: '#202E38', background: 'transparent', fontFamily: "'Plus Jakarta Sans', sans-serif" }} />
+              <button style={{ background: accent, color: '#fff', border: 'none', borderRadius: 12, padding: '12px 28px', fontSize: 14, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>Buscar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── CONTENT ── */}
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 28, alignItems: 'start' }}>
+
+          {/* ── SIDEBAR FILTERS ── */}
+          <aside style={{ background: '#FDFCF8', borderRadius: 16, padding: '24px', border: '1.5px solid #DDD9CC', position: 'sticky', top: 80 }}>
+            <h3 style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#9AAAB0', marginBottom: 20 }}>Filtros</h3>
+
+            <div style={{ marginBottom: 24 }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#202E38', marginBottom: 12 }}>Estado del proceso</p>
+              {ESTADOS.map(e => (
+                <label key={e} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9, cursor: 'pointer' }}>
+                  <div onClick={() => setEstado(e)} style={{ width: 18, height: 18, borderRadius: 5, border: `2px solid ${estado === e ? accent : '#C8C4B8'}`, background: estado === e ? accent : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', flexShrink: 0 }}>
+                    {estado === e && <span style={{ color: '#fff', fontSize: 10, fontWeight: 800 }}>✓</span>}
+                  </div>
+                  <span style={{ fontSize: 14, color: estado === e ? '#202E38' : '#5A6A73', fontWeight: estado === e ? 700 : 500 }}>{e === 'Todos' ? 'Todos' : estadoLabel[e]}</span>
+                </label>
+              ))}
+            </div>
+
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#202E38', marginBottom: 12 }}>Categoría</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {CATEGORIAS.map(c => (
+                  <button key={c} onClick={() => setCategoria(c)}
+                    style={{ textAlign: 'left', padding: '8px 12px', borderRadius: 9, border: 'none', background: categoria === c ? `${teal}15` : 'transparent', color: categoria === c ? teal : '#5A6A73', fontWeight: categoria === c ? 700 : 500, fontSize: 14, cursor: 'pointer', transition: 'all 0.15s', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                    {c !== 'Todas' && <span style={{ marginRight: 8 }}>{catIcon[c]}</span>}{c}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {(categoria !== 'Todas' || estado !== 'Todos' || search !== '') && (
+              <button onClick={() => { setCategoria('Todas'); setEstado('Todos'); setSearch(''); }}
+                style={{ width: '100%', marginTop: 20, padding: '10px', background: 'transparent', border: `1.5px solid #DDD9CC`, borderRadius: 10, color: '#7A8A93', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                Limpiar filtros
+              </button>
+            )}
+          </aside>
+
+          {/* ── RESULTS ── */}
+          <main>
+            {/* Results header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div>
+                <h2 style={{ fontSize: 22, fontWeight: 800, color: '#202E38' }}>
+                  {categoria !== 'Todas' ? categoria : 'Todos los procesos'}
+                </h2>
+                <p style={{ fontSize: 14, color: '#7A8A93', marginTop: 2 }}>{filtered.length} proceso{filtered.length !== 1 ? 's' : ''} encontrado{filtered.length !== 1 ? 's' : ''}</p>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <select style={{ border: '1.5px solid #DDD9CC', borderRadius: 10, padding: '8px 14px', fontSize: 13, color: '#202E38', background: '#fff', cursor: 'pointer', fontFamily: "'Plus Jakarta Sans', sans-serif", outline: 'none' }}>
+                  <option>Más recientes</option>
+                  <option>Mayor valor</option>
+                  <option>Cierre próximo</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Cards */}
+            {filtered.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '60px 20px', color: '#9AAAB0' }}>
+                <div style={{ fontSize: 48, marginBottom: 16 }}>🔍</div>
+                <p style={{ fontSize: 18, fontWeight: 700, color: '#5A6A73' }}>Sin resultados</p>
+                <p style={{ fontSize: 14, marginTop: 6 }}>Intenta con otros términos o ajusta los filtros</p>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gap: tweaks.density === 'compact' ? 10 : 14 }}>
+                {filtered.map(l => <LicitacionCard key={l.id} licitacion={l} onClick={setSelected} tweaks={tweaks} />)}
+              </div>
+            )}
+
+            {/* Pagination stub */}
+            {filtered.length > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 36 }}>
+                {[1,2,3,'…',12].map((p, i) => (
+                  <button key={i} style={{ width: 38, height: 38, borderRadius: 10, border: `1.5px solid ${i === 0 ? accent : '#DDD9CC'}`, background: i === 0 ? accent : '#fff', color: i === 0 ? '#fff' : '#5A6A73', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                    {p}
+                  </button>
+                ))}
+              </div>
+            )}
+          </main>
+        </div>
+      </div>
+
+      {/* ── FOOTER ── */}
+      <footer style={{ background: '#202E38', marginTop: 60, padding: '40px 24px' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 20 }}>
+          <div>
+            <Logo height={28} orange={true} />
+            <p style={{ fontSize: 13, color: '#7A8A93' }}>Plataforma de compras públicas · Colombia 2026</p>
+          </div>
+          <div style={{ display: 'flex', gap: 24 }}>
+            {['Términos', 'Privacidad', 'Contacto', 'API'].map(l => (
+              <a key={l} href="#" style={{ fontSize: 13, color: '#7A8A93', textDecoration: 'none' }}>{l}</a>
+            ))}
+          </div>
+        </div>
+      </footer>
+
+      {/* ── MODAL ── */}
+      {selected && <DetailModal licitacion={selected} onClose={() => setSelected(null)} tweaks={tweaks} />}
+
+      {/* ── TWEAKS PANEL ── */}
+      <TweaksPanel>
+        <TweakSection title="Colores">
+          <TweakColor id="accentColor" label="Color acento (naranja)" />
+          <TweakColor id="tealColor" label="Color primario (teal)" />
+        </TweakSection>
+        <TweakSection title="Layout">
+          <TweakToggle id="showHero" label="Mostrar hero" />
+          <TweakRadio id="density" label="Densidad de cards" options={["normal", "compact"]} />
+        </TweakSection>
+      </TweaksPanel>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

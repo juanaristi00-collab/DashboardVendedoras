@@ -12,7 +12,11 @@ class Settings(BaseSettings):
     DB_USER: str
     DB_PASSWORD: str             # Nombre exacto del .env
 
-    model_config = {"env_file": str(_ENV_FILE), "env_file_encoding": "utf-8"}
+    model_config = {
+        "env_file": str(_ENV_FILE) if _ENV_FILE.exists() else None,
+        "env_file_encoding": "utf-8",
+        "extra": "ignore"
+    }
 
 
 settings = Settings()

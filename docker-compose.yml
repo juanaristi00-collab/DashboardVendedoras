@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  crm-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: crm-dashboard-app
+    restart: always
+    ports:
+      - "8000:8000"
+    # Load environment variables from the .env file in the root directory
+    env_file:
+      - .env
+    environment:
+      - TZ=America/Bogota
+    networks:
+      - crm-network
+
+networks:
+  crm-network:
+    driver: bridge
